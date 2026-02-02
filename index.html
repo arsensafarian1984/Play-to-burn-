@@ -1,26 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>Test Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست انتشار</title>
     <style>
-        body { background: black; color: white; text-align: center; padding-top: 50px; font-family: Arial; }
-        button { padding: 30px 60px; font-size: 30px; background: red; color: white; border: none; cursor: pointer; }
+        /* رنگ زرد انتخاب کردم که با نسخه‌های قبلی کاملا متفاوت باشد */
+        body { 
+            background-color: #FFD700; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            font-family: Tahoma, sans-serif;
+        }
+        h1 { color: #000; font-size: 30px; }
+        button { 
+            padding: 20px 40px; 
+            font-size: 25px; 
+            background-color: #000; 
+            color: #fff; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+        }
     </style>
 </head>
 <body>
-    <h1>TON BURNER TEST</h1>
-    <div id="status">PRESS START TO PLAY</div>
-    <br><br>
-    <button id="btn" onclick="start()">START 🔥</button>
-
-    <script>
-        function start() {
-            console.log("Button clicked!");
-            document.getElementById('btn').style.backgroundColor = "green";
-            document.getElementById('status').innerHTML = "GAME STARTED! <br> (If you see this, the button works)";
-            alert("بازی با موفقیت شروع شد!");
-        }
-    </script>
+    <h1>نسخه جدید لود شد! ✅</h1>
+    <p>اگر این صفحه زرد است، یعنی گیت‌هاب آپدیت شده.</p>
+    <button onclick="alert('دکمه کار می‌کند!')">شروع بازی</button>
 </body>
 </html>
