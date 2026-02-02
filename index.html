@@ -9,20 +9,23 @@
         canvas { display: block; background: #0b141a; border: 2px solid #333; border-radius: 10px; }
         #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
         button { padding: 20px 50px; font-size: 24px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(0,212,255,0.4); }
-        h1 { color: #00d4ff; font-size: 40px; margin-bottom: 20px; }
+        h1 { color: #00d4ff; font-size: 35px; margin-bottom: 10px; }
+        p { color: #ccc; margin-bottom: 25px; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="s">0</span></div>
+    <div id="ui">SCORE: <span id="s">0</span> | SPEED: <span id="sp">1.0</span>x</div>
     <canvas id="c"></canvas>
 
     <div id="menu">
         <h1>TON BURNER</h1>
-        <button id="realStartBtn">START GAME 🔥</button>
+        <p>Speed increases as you score!</p>
+        <button id="startBtn">START GAME 🔥</button>
     </div>
 
     <div id="over" style="display: none;">
-        <h1>GAME OVER</h1>
+        <h1 style="color: #ff4e50;">BOOM!</h1>
+        <p id="finalScore"></p>
         <button onclick="location.reload()">TRY AGAIN 🔄</button>
     </div>
 
@@ -32,47 +35,85 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        let bird, pipes, score, active, frame;
+        let bird, pipes, score, active, frame, gameSpeed;
 
         function resetGame() {
-            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = []; score = 0; frame = 0; active = true;
+            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.45 }; // جاذبه کمی کمتر برای شروع راحت‌تر
+            pipes = [];
+            score = 0;
+            frame = 0;
+            gameSpeed = 3.0; // سرعت اولیه موانع
+            active = true;
             document.getElementById('s').innerText = "0";
+            document.getElementById('sp').innerText = "1.0";
         }
 
         function loop() {
             if(!active) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            bird.v += bird.g; bird.y += bird.v;
             
+            // فیزیک پرنده
+            bird.v += bird.g;
+            bird.y += bird.v;
+            
+            // رسم الماس TON
             ctx.fillStyle = "#00d4ff";
-            ctx.fillRect(bird.x-15, bird.y-15, 30, 30);
+            ctx.fillRect(bird.x - 15, bird.y - 15, 30, 30);
 
-            if(frame % 90 === 0) {
-                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 300) + 50, passed: false });
+            // ایجاد موانع (فاصله ایجاد موانع بر اساس سرعت تنظیم می‌شود)
+            if(frame % Math.floor(100 / (gameSpeed/3)) === 0) {
+                pipes.push({ 
+                    x: canvas.width, 
+                    t: Math.random() * (canvas.height - 350) + 100, 
+                    passed: false 
+                });
             }
-            pipes.forEach(p => {
-                p.x -= 3.5;
+
+            pipes.forEach((p, index) => {
+                p.x -= gameSpeed; // اعمال سرعت متغیر
+                
                 ctx.fillStyle = "#ff4e50";
-                ctx.fillRect(p.x, 0, 50, p.t);
-                ctx.fillRect(p.x, p.t + 170, 50, canvas.height);
-                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+170)) active = false;
-                if(p.x < 50 && !p.passed) { p.passed = true; score++; document.getElementById('s').innerText = score; }
+                ctx.fillRect(p.x, 0, 50, p.t); // ستون بالا
+                ctx.fillRect(p.x, p.t + 190, 50, canvas.height); // ستون پایین (فاصله ۱۹۰ برای راحتی)
+
+                // تشخیص برخورد
+                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+190)) {
+                    active = false;
+                }
+
+                // امتیازدهی و افزایش سرعت
+                if(p.x < 50 && !p.passed) {
+                    p.passed = true;
+                    score++;
+                    gameSpeed += 0.15; // با هر امتیاز ۰.۱۵ به سرعت اضافه می‌شود
+                    document.getElementById('s').innerText = score;
+                    document.getElementById('sp').innerText = (gameSpeed/3).toFixed(1);
+                }
             });
+
+            // حذف موانع خارج شده
+            pipes = pipes.filter(p => p.x > -60);
+
+            // برخورد با سقف و کف
             if(bird.y > canvas.height || bird.y < 0) active = false;
-            if(!active) document.getElementById('over').style.display = 'flex';
-            else { frame++; requestAnimationFrame(loop); }
+
+            if(!active) {
+                document.getElementById('finalScore').innerText = "Final Score: " + score;
+                document.getElementById('over').style.display = 'flex';
+            } else {
+                frame++;
+                requestAnimationFrame(loop);
+            }
         }
 
-        // روش مستقیم برای کلیک
-        document.getElementById('realStartBtn').onclick = function() {
+        document.getElementById('startBtn').onclick = function() {
             document.getElementById('menu').style.display = 'none';
             resetGame();
             loop();
         };
 
         window.addEventListener('touchstart', (e) => { 
-            if(active) bird.v = -8; 
+            if(active) bird.v = -7.5; 
             if(e.target.tagName !== 'BUTTON') e.preventDefault(); 
         }, {passive: false});
     </script>
