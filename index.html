@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #0b141a; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 22px; }
-        canvas { display: block; background: #0b141a; border: 2px solid #333; border-radius: 10px; }
-        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 20px 50px; font-size: 24px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(0,212,255,0.4); }
-        h1 { color: #00d4ff; font-size: 35px; margin-bottom: 10px; }
-        p { color: #ccc; margin-bottom: 25px; }
+        body { margin: 0; background: #050a10; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 18px; text-shadow: 0 0 10px #00d4ff; }
+        canvas { display: block; background: radial-gradient(circle, #1a2a3a 0%, #050a10 100%); border: 1px solid #00d4ff; box-shadow: 0 0 20px rgba(0,212,255,0.2); border-radius: 15px; }
+        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,10,16,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; text-align: center; }
+        button { padding: 18px 45px; font-size: 22px; background: none; border: 2px solid #00d4ff; border-radius: 50px; color: #00d4ff; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(0,212,255,0.3); text-transform: uppercase; letter-spacing: 2px; }
+        h1 { color: #00d4ff; font-size: 38px; margin-bottom: 10px; text-shadow: 0 0 20px #00d4ff; }
+        p { color: #88bdc9; margin-bottom: 30px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -19,14 +19,14 @@
 
     <div id="menu">
         <h1>TON BURNER</h1>
-        <p>Speed increases as you score!</p>
-        <button id="startBtn">START GAME 🔥</button>
+        <p>CYBERPUNK CHALLENGE</p>
+        <button id="startBtn">INITIATE 🔥</button>
     </div>
 
     <div id="over" style="display: none;">
-        <h1 style="color: #ff4e50;">BOOM!</h1>
+        <h1 style="color: #ff4e50; text-shadow: 0 0 20px #ff4e50;">SYSTEM CRASH</h1>
         <p id="finalScore"></p>
-        <button onclick="location.reload()">TRY AGAIN 🔄</button>
+        <button onclick="location.reload()">REBOOT 🔄</button>
     </div>
 
     <script>
@@ -38,82 +38,67 @@
         let bird, pipes, score, active, frame, gameSpeed;
 
         function resetGame() {
-            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.45 }; // جاذبه کمی کمتر برای شروع راحت‌تر
-            pipes = [];
-            score = 0;
-            frame = 0;
-            gameSpeed = 3.0; // سرعت اولیه موانع
-            active = true;
+            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.45 };
+            pipes = []; score = 0; frame = 0; gameSpeed = 3.2; active = true;
             document.getElementById('s').innerText = "0";
             document.getElementById('sp').innerText = "1.0";
+        }
+
+        function drawDiamond(x, y) {
+            ctx.shadowBlur = 15; ctx.shadowColor = "#00d4ff";
+            ctx.fillStyle = "#00d4ff";
+            ctx.beginPath();
+            ctx.moveTo(x, y - 18); ctx.lineTo(x + 18, y); ctx.lineTo(x, y + 18); ctx.lineTo(x - 18, y);
+            ctx.closePath(); ctx.fill();
+            ctx.shadowBlur = 0;
         }
 
         function loop() {
             if(!active) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // فیزیک پرنده
-            bird.v += bird.g;
-            bird.y += bird.v;
-            
-            // رسم الماس TON
-            ctx.fillStyle = "#00d4ff";
-            ctx.fillRect(bird.x - 15, bird.y - 15, 30, 30);
+            bird.v += bird.g; bird.y += bird.v;
+            drawDiamond(bird.x, bird.y);
 
-            // ایجاد موانع (فاصله ایجاد موانع بر اساس سرعت تنظیم می‌شود)
-            if(frame % Math.floor(100 / (gameSpeed/3)) === 0) {
-                pipes.push({ 
-                    x: canvas.width, 
-                    t: Math.random() * (canvas.height - 350) + 100, 
-                    passed: false 
-                });
+            if(frame % Math.floor(110 / (gameSpeed/3)) === 0) {
+                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 350) + 100, passed: false });
             }
 
-            pipes.forEach((p, index) => {
-                p.x -= gameSpeed; // اعمال سرعت متغیر
+            pipes.forEach(p => {
+                p.x -= gameSpeed;
                 
+                // افکت نئون برای ستون‌ها
+                ctx.shadowBlur = 10; ctx.shadowColor = "#ff4e50";
                 ctx.fillStyle = "#ff4e50";
-                ctx.fillRect(p.x, 0, 50, p.t); // ستون بالا
-                ctx.fillRect(p.x, p.t + 190, 50, canvas.height); // ستون پایین (فاصله ۱۹۰ برای راحتی)
+                ctx.fillRect(p.x, 0, 45, p.t);
+                ctx.fillRect(p.x, p.t + 185, 45, canvas.height);
+                ctx.shadowBlur = 0;
 
-                // تشخیص برخورد
-                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+190)) {
-                    active = false;
-                }
+                if(bird.x+12 > p.x && bird.x-12 < p.x+45 && (bird.y-12 < p.t || bird.y+12 > p.t+185)) active = false;
 
-                // امتیازدهی و افزایش سرعت
                 if(p.x < 50 && !p.passed) {
-                    p.passed = true;
-                    score++;
-                    gameSpeed += 0.15; // با هر امتیاز ۰.۱۵ به سرعت اضافه می‌شود
+                    p.passed = true; score++; gameSpeed += 0.12;
                     document.getElementById('s').innerText = score;
-                    document.getElementById('sp').innerText = (gameSpeed/3).toFixed(1);
+                    document.getElementById('sp').innerText = (gameSpeed/3.2).toFixed(1);
                 }
             });
 
-            // حذف موانع خارج شده
             pipes = pipes.filter(p => p.x > -60);
-
-            // برخورد با سقف و کف
             if(bird.y > canvas.height || bird.y < 0) active = false;
 
             if(!active) {
-                document.getElementById('finalScore').innerText = "Final Score: " + score;
+                document.getElementById('finalScore').innerText = "DATA RECOVERED: " + score;
                 document.getElementById('over').style.display = 'flex';
-            } else {
-                frame++;
-                requestAnimationFrame(loop);
-            }
+            } else { frame++; requestAnimationFrame(loop); }
         }
 
         document.getElementById('startBtn').onclick = function() {
             document.getElementById('menu').style.display = 'none';
-            resetGame();
-            loop();
+            resetGame(); loop();
         };
 
         window.addEventListener('touchstart', (e) => { 
-            if(active) bird.v = -7.5; 
+            if(active) bird.v = -7.2; 
             if(e.target.tagName !== 'BUTTON') e.preventDefault(); 
         }, {passive: false});
     </script>
