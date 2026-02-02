@@ -4,28 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #050a10; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 18px; text-shadow: 0 0 10px #00d4ff; }
-        canvas { display: block; background: radial-gradient(circle, #1a2a3a 0%, #050a10 100%); border: 1px solid #00d4ff; box-shadow: 0 0 20px rgba(0,212,255,0.2); border-radius: 15px; }
-        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,10,16,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; text-align: center; }
-        button { padding: 18px 45px; font-size: 22px; background: none; border: 2px solid #00d4ff; border-radius: 50px; color: #00d4ff; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(0,212,255,0.3); text-transform: uppercase; letter-spacing: 2px; }
-        h1 { color: #00d4ff; font-size: 38px; margin-bottom: 10px; text-shadow: 0 0 20px #00d4ff; }
-        p { color: #88bdc9; margin-bottom: 30px; font-size: 14px; }
+        body { margin: 0; background: #050505; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 22px; text-shadow: 0 0 10px #00d4ff; }
+        canvas { display: block; background: #080808; border-radius: 10px; box-shadow: 0 0 20px rgba(0,212,255,0.1); }
+        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
+        button { padding: 15px 45px; font-size: 22px; background: linear-gradient(to bottom, #00d4ff, #005a8d); border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.4); text-transform: uppercase; }
+        h1 { color: #00d4ff; font-size: 35px; text-shadow: 0 0 15px #00d4ff; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="s">0</span> | SPEED: <span id="sp">1.0</span>x</div>
+    <div id="ui">🔥 TON BURNT: <span id="s">0</span></div>
     <canvas id="c"></canvas>
 
     <div id="menu">
         <h1>TON BURNER</h1>
-        <p>CYBERPUNK CHALLENGE</p>
-        <button id="startBtn">INITIATE 🔥</button>
+        <button id="startBtn">START MISSION 🚀</button>
     </div>
 
     <div id="over" style="display: none;">
-        <h1 style="color: #ff4e50; text-shadow: 0 0 20px #ff4e50;">SYSTEM CRASH</h1>
-        <p id="finalScore"></p>
+        <h1 style="color: #ff4500;">MISSION FAILED</h1>
         <button onclick="location.reload()">REBOOT 🔄</button>
     </div>
 
@@ -35,22 +32,38 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // --- بارگذاری عکس لوگوی واقعی TON ---
+        const tonImg = new Image();
+        tonImg.src = 'https://cryptologos.cc/logos/toncoin-ton-logo.png';
+
         let bird, pipes, score, active, frame, gameSpeed;
 
         function resetGame() {
-            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.45 };
-            pipes = []; score = 0; frame = 0; gameSpeed = 3.2; active = true;
-            document.getElementById('s').innerText = "0";
-            document.getElementById('sp').innerText = "1.0";
+            bird = { x: 70, y: canvas.height/2, v: 0, g: 0.48, angle: 0 };
+            pipes = []; score = 0; frame = 0; gameSpeed = 3.6; active = true;
         }
 
-        function drawDiamond(x, y) {
-            ctx.shadowBlur = 15; ctx.shadowColor = "#00d4ff";
-            ctx.fillStyle = "#00d4ff";
+        function drawFire(x, y, w, h, isTop) {
+            let flicker = Math.random() * 10;
+            let grad = ctx.createLinearGradient(x, 0, x + w, 0);
+            grad.addColorStop(0, "#ff3300");
+            grad.addColorStop(0.5, "#ffcc00");
+            grad.addColorStop(1, "#ff3300");
+
+            ctx.save();
+            ctx.shadowBlur = 20 + flicker;
+            ctx.shadowColor = "#ff4500";
+            ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.moveTo(x, y - 18); ctx.lineTo(x + 18, y); ctx.lineTo(x, y + 18); ctx.lineTo(x - 18, y);
-            ctx.closePath(); ctx.fill();
-            ctx.shadowBlur = 0;
+            if(isTop) {
+                ctx.moveTo(x, 0); ctx.lineTo(x + w, 0);
+                ctx.lineTo(x + w + flicker, h); ctx.quadraticCurveTo(x + w/2, h + 25, x - flicker, h);
+            } else {
+                ctx.moveTo(x - flicker, y); ctx.quadraticCurveTo(x + w/2, y - 25, x + w + flicker, y);
+                ctx.lineTo(x + w, canvas.height); ctx.lineTo(x, canvas.height);
+            }
+            ctx.fill();
+            ctx.restore();
         }
 
         function loop() {
@@ -58,49 +71,44 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             bird.v += bird.g; bird.y += bird.v;
-            drawDiamond(bird.x, bird.y);
+            bird.angle = Math.min(Math.PI/6, Math.max(-Math.PI/6, bird.v/12));
 
-            if(frame % Math.floor(110 / (gameSpeed/3)) === 0) {
-                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 350) + 100, passed: false });
+            // --- رسم لوگوی متحرک و درخشان ---
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+            ctx.rotate(bird.angle);
+            ctx.shadowBlur = 20; ctx.shadowColor = "#00d4ff";
+            // اگر عکس لود شده باشد آن را رسم می‌کند
+            if (tonImg.complete) {
+                ctx.drawImage(tonImg, -22, -22, 44, 44);
+            } else {
+                // جایگزین موقت تا لود شدن عکس
+                ctx.fillStyle = "#00d4ff";
+                ctx.fillRect(-20, -20, 40, 40);
+            }
+            ctx.restore();
+
+            if(frame % 95 === 0) {
+                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 380) + 120, passed: false });
             }
 
             pipes.forEach(p => {
                 p.x -= gameSpeed;
-                
-                // افکت نئون برای ستون‌ها
-                ctx.shadowBlur = 10; ctx.shadowColor = "#ff4e50";
-                ctx.fillStyle = "#ff4e50";
-                ctx.fillRect(p.x, 0, 45, p.t);
-                ctx.fillRect(p.x, p.t + 185, 45, canvas.height);
-                ctx.shadowBlur = 0;
+                drawFire(p.x, 0, 55, p.t, true);
+                drawFire(p.x, p.t + 185, 55, canvas.height, false);
 
-                if(bird.x+12 > p.x && bird.x-12 < p.x+45 && (bird.y-12 < p.t || bird.y+12 > p.t+185)) active = false;
-
-                if(p.x < 50 && !p.passed) {
-                    p.passed = true; score++; gameSpeed += 0.12;
-                    document.getElementById('s').innerText = score;
-                    document.getElementById('sp').innerText = (gameSpeed/3.2).toFixed(1);
-                }
+                if(bird.x+18 > p.x && bird.x-18 < p.x+55 && (bird.y-18 < p.t || bird.y+18 > p.t+185)) active = false;
+                if(p.x < 70 && !p.passed) { p.passed = true; score++; gameSpeed += 0.12; }
             });
 
-            pipes = pipes.filter(p => p.x > -60);
+            document.getElementById('s').innerText = score;
             if(bird.y > canvas.height || bird.y < 0) active = false;
-
-            if(!active) {
-                document.getElementById('finalScore').innerText = "DATA RECOVERED: " + score;
-                document.getElementById('over').style.display = 'flex';
-            } else { frame++; requestAnimationFrame(loop); }
+            if(!active) document.getElementById('over').style.display = 'flex';
+            else { frame++; requestAnimationFrame(loop); }
         }
 
-        document.getElementById('startBtn').onclick = function() {
-            document.getElementById('menu').style.display = 'none';
-            resetGame(); loop();
-        };
-
-        window.addEventListener('touchstart', (e) => { 
-            if(active) bird.v = -7.2; 
-            if(e.target.tagName !== 'BUTTON') e.preventDefault(); 
-        }, {passive: false});
+        document.getElementById('startBtn').onclick = () => { document.getElementById('menu').style.display='none'; resetGame(); loop(); };
+        window.addEventListener('touchstart', (e) => { if(active) bird.v = -8; e.preventDefault(); }, {passive: false});
     </script>
 </body>
 </html>
