@@ -4,123 +4,118 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #010204; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; filter: contrast(120%) brightness(110%); }
-        #ui { position: absolute; top: 25px; width: 100%; text-align: center; color: #fff; font-size: 28px; z-index: 5; text-shadow: 0 0 15px #00d4ff; pointer-events: none; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 18px 50px; font-size: 22px; background: #00d4ff; border: none; border-radius: 15px; color: #000; font-weight: bold; cursor: pointer; box-shadow: 0 0 30px rgba(0,212,255,0.5); }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; touch-action: none; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 26px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; pointer-events: none; z-index: 10; }
+        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
+        button { padding: 20px 60px; font-size: 24px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="ui">🔥 <span id="s">0</span></div>
+    <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
     <div id="menu">
-        <h1 id="title" style="color: #00d4ff; text-shadow: 0 0 20px #00d4ff;">TON BURNER</h1>
-        <button id="btn">START MISSION</button>
+        <h1 id="mTitle" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
+        <button id="startBtn">START GAME 🔥</button>
     </div>
 
     <script>
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
         const tonImg = new Image();
         tonImg.src = 'https://cryptologos.cc/logos/toncoin-ton-logo.png';
 
-        let bird, pipes, particles, score, active = false, frame = 0;
+        let bird, pipes, score, active = false, frame = 0;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
 
         function reset() {
-            bird = { x: 70, y: canvas.height/2, v: 0, g: 0.5, rot: 0 };
+            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
             pipes = [];
-            particles = [];
             score = 0;
             frame = 0;
             active = true;
-            document.getElementById('s').innerText = "0";
             document.getElementById('menu').style.display = 'none';
-            // شروع مجدد حلقه انیمیشن اگر متوقف شده بود
-            draw();
+            document.getElementById('s').innerText = "0";
+            animate(); // اجرای حلقه انیمیشن
         }
 
-        function createParticles(x, y, color, count) {
-            for(let i=0; i<count; i++) {
-                particles.push({
-                    x, y, 
-                    vx: (Math.random()-0.7)*5, 
-                    vy: (Math.random()-0.5)*4, 
-                    size: Math.random()*3+1,
-                    life: 1, 
-                    color 
-                });
-            }
+        function drawFire(x, y, w, h, isTop) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ff4400";
+            let g = ctx.createLinearGradient(x, 0, x+w, 0);
+            g.addColorStop(0, "#ff1100"); g.addColorStop(0.5, "#ffcc00"); g.addColorStop(1, "#ff1100");
+            ctx.fillStyle = g;
+            ctx.fillRect(x, isTop ? 0 : y, w, isTop ? y : canvas.height - y);
+            ctx.shadowBlur = 0;
         }
 
-        function draw() {
-            if(!active) return; // اگر بازی فعال نیست، طراحی را متوقف کن
+        function animate() {
+            if(!active) return;
 
-            ctx.fillStyle = 'rgba(1, 2, 4, 0.4)';
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)"; // افکت کشیدگی حرکت
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // ذرات
-            particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-                ctx.fillStyle = `rgba(${p.color}, ${p.life})`;
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
-                if(p.life <= 0) particles.splice(i, 1);
-            });
+            // فیزیک پرنده
+            bird.v += bird.g;
+            bird.y += bird.v;
 
-            // لوگو
-            bird.v += bird.g; bird.y += bird.v;
-            bird.rot = Math.min(Math.PI/4, Math.max(-Math.PI/4, bird.v/10));
-            
+            // رسم لوگو
             ctx.save();
-            ctx.translate(bird.x, bird.y);
-            ctx.rotate(bird.rot);
-            ctx.shadowBlur = 20; ctx.shadowColor = '#00d4ff';
-            ctx.drawImage(tonImg, -25, -25, 50, 50);
+            ctx.shadowBlur = 15; ctx.shadowColor = "#00d4ff";
+            if(tonImg.complete) {
+                ctx.drawImage(tonImg, bird.x-20, bird.y-20, 40, 40);
+            } else {
+                ctx.fillStyle = "#00d4ff";
+                ctx.beginPath(); ctx.arc(bird.x, bird.y, 20, 0, Math.PI*2); ctx.fill();
+            }
             ctx.restore();
-            
-            createParticles(bird.x-10, bird.y, '0, 212, 255', 1);
 
-            // لوله‌ها
-            if(frame % 90 === 0) pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-350)+100, p: false });
-            
+            // موانع
+            if(frame % 90 === 0) {
+                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-300)+50 });
+            }
+
             pipes.forEach((p, i) => {
-                p.x -= 4.2;
-                let pulse = Math.sin(frame*0.1)*10;
-                let grad = ctx.createLinearGradient(p.x, 0, p.x+60, 0);
-                grad.addColorStop(0, '#ff1100'); grad.addColorStop(0.5, '#ffea00'); grad.addColorStop(1, '#ff1100');
-                
-                ctx.shadowBlur = 25 + pulse; ctx.shadowColor = '#ff4400';
-                ctx.fillStyle = grad;
-                ctx.fillRect(p.x, 0, 60, p.t);
-                ctx.fillRect(p.x, p.t+180, 60, canvas.height);
-                
-                if(bird.x+18 > p.x && bird.x-18 < p.x+60 && (bird.y-18 < p.t || bird.y+18 > p.t+180)) {
-                    gameOver();
+                p.x -= 4;
+                drawFire(p.x, p.t, 50, 0, true);
+                drawFire(p.x, p.t+170, 50, 0, false);
+
+                // تشخیص برخورد
+                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+170)) {
+                    die();
                 }
-                if(p.x < 70 && !p.p) { p.p=true; score++; document.getElementById('s').innerText = score; }
+                // امتیاز
+                if(p.x === 10) { score++; document.getElementById('s').innerText = score; }
             });
 
-            pipes = pipes.filter(p => p.x > -100);
-            if(bird.y > canvas.height || bird.y < 0) gameOver();
+            pipes = pipes.filter(p => p.x > -60);
+            if(bird.y > canvas.height || bird.y < 0) die();
 
             frame++;
-            requestAnimationFrame(draw);
+            requestAnimationFrame(animate);
         }
 
-        function gameOver() {
+        function die() {
             active = false;
-            document.getElementById('title').innerText = "SCORE: " + score;
-            document.getElementById('btn').innerText = "TRY AGAIN 🔄";
+            document.getElementById('mTitle').innerText = "SCORE: " + score;
+            document.getElementById('startBtn').innerText = "RETRY 🔄";
             document.getElementById('menu').style.display = 'flex';
         }
 
-        document.getElementById('btn').onclick = reset;
-        window.onmousedown = window.ontouchstart = (e) => { 
-            if(active) bird.v = -8; 
-            if(e.type === 'touchstart') e.preventDefault();
+        document.getElementById('startBtn').onclick = (e) => {
+            e.stopPropagation();
+            reset();
+        };
+
+        window.onmousedown = window.ontouchstart = (e) => {
+            if(active) bird.v = -8;
+            if(e.type === 'touchstart' && active) e.preventDefault();
         };
     </script>
 </body>
