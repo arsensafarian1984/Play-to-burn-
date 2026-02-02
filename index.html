@@ -5,74 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://sad.adsgram.ai/js/adsgram-adbox.js"></script>
     <style>
-        body { margin: 0; background: #0088cc; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; background: #e3f2fd; margin: 20px auto; border-radius: 15px; }
-        #ui { position: absolute; top: 0; width: 100%; text-align: center; color: white; }
-        #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
-        button { padding: 15px 30px; font-size: 20px; background: #ff9800; border: none; border-radius: 50px; color: white; font-weight: bold; }
+        body { margin: 0; background: #0b141a; overflow: hidden; font-family: sans-serif; touch-action: none; }
+        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; }
+        canvas { display: block; background: radial-gradient(circle, #1a2a6c, #b21f1f, #fdbb2d); margin: 20px auto; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; text-align: center; }
+        button { padding: 15px 30px; font-size: 20px; background: #ff4e50; border: none; border-radius: 50px; color: white; cursor: pointer; box-shadow: 0 5px 15px rgba(255,78,80,0.4); }
     </style>
 </head>
 <body>
-    <div id="ui"><h2>Score: <span id="s">0</span></h2></div>
+    <div id="ui">🔥 TON BURNT: <span id="s">0</span></div>
     <canvas id="c"></canvas>
     <div id="over">
-        <h1>GAME OVER</h1>
-        <p>100% of Revenue Burns TON!</p>
+        <h1 style="color: #ff4e50;">GAME OVER</h1>
+        <p>Your burn contributed to the TON ecosystem!</p>
         <button onclick="showAd()">WATCH AD & REPLAY</button>
     </div>
-
     <script>
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth * 0.9;
         canvas.height = window.innerHeight * 0.7;
 
-        let bird = { x: 50, y: canvas.height/2, v: 0, g: 0.4 };
-        let pipes = [];
-        let score = 0;
-        let active = true;
-        let frame = 0;
+        let bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
+        let pipes = []; let score = 0; let active = true; let frame = 0;
 
-        const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "int-34" }) : null;
+        const AdController = window.Adsgram.init({ blockId: "int-34" });
 
         function showAd() {
-            if(AdController) {
-                AdController.show().then(() => location.reload()).catch(() => location.reload());
-            } else { location.reload(); }
+            AdController.show().then(() => location.reload()).catch(() => location.reload());
+        }
+
+        function drawTon(x, y) {
+            ctx.fillStyle = "#00d4ff";
+            ctx.beginPath();
+            ctx.moveTo(x, y-15); ctx.lineTo(x+15, y); ctx.lineTo(x, y+15); ctx.lineTo(x-15, y);
+            ctx.closePath(); ctx.fill();
         }
 
         function loop() {
             if(!active) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            bird.v += bird.g;
-            bird.y += bird.v;
-            ctx.fillStyle = '#0088cc';
-            ctx.beginPath(); ctx.arc(bird.x, bird.y, 15, 0, Math.PI*2); ctx.fill();
+            bird.v += bird.g; bird.y += bird.v;
+            drawTon(bird.x, bird.y);
 
             if(frame % 100 === 0) {
-                let h = Math.random() * (canvas.height - 200) + 50;
-                pipes.push({ x: canvas.width, t: h });
+                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 200) + 50 });
             }
 
-            pipes.forEach((p, i) => {
-                p.x -= 2;
-                ctx.fillStyle = '#4caf50';
+            pipes.forEach(p => {
+                p.x -= 3;
+                ctx.fillStyle = "#2c3e50";
                 ctx.fillRect(p.x, 0, 50, p.t);
                 ctx.fillRect(p.x, p.t + 150, 50, canvas.height);
-
-                if(bird.x > p.x && bird.x < p.x + 50 && (bird.y < p.t || bird.y > p.t + 150)) active = false;
+                if(bird.x+10 > p.x && bird.x-10 < p.x+50 && (bird.y-10 < p.t || bird.y+10 > p.t+150)) active = false;
                 if(p.x === 50) { score++; document.getElementById('s').innerText = score; }
             });
 
             if(bird.y > canvas.height || bird.y < 0) active = false;
             if(!active) document.getElementById('over').style.display = 'flex';
-
-            frame++;
-            requestAnimationFrame(loop);
+            frame++; requestAnimationFrame(loop);
         }
-
-        window.addEventListener('touchstart', (e) => { bird.v = -7; e.preventDefault(); }, {passive: false});
+        window.addEventListener('touchstart', () => bird.v = -8);
         loop();
     </script>
 </body>
