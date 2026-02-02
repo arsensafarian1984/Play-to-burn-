@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://sad.adsgram.ai/js/adsgram-adbox.js"></script>
     <style>
-        body { margin: 0; background: #0b141a; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; }
-        canvas { display: block; background: radial-gradient(circle, #1a2a6c, #b21f1f, #fdbb2d); border-radius: 15px; }
-        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 18px 35px; font-size: 22px; background: #ff4e50; border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(255,78,80,0.4); }
+        body { margin: 0; background: #0b141a; overflow: hidden; font-family: 'Arial', sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 20px; text-shadow: 0 0 10px rgba(0,212,255,0.5); }
+        canvas { display: block; background: linear-gradient(to bottom, #001f3f, #0b141a); border: 2px solid #00d4ff; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; text-align: center; }
+        button { padding: 18px 35px; font-size: 22px; background: linear-gradient(45deg, #ff4e50, #f9d423); border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(255,78,80,0.4); transition: 0.3s; }
+        button:active { transform: scale(0.95); }
+        h1 { color: #ff4e50; font-size: 45px; margin: 0; text-shadow: 0 0 15px #ff4e50; }
+        p { font-size: 18px; margin: 15px 0 25px; color: #ccc; }
     </style>
 </head>
 <body>
@@ -17,75 +20,29 @@
     <canvas id="c"></canvas>
 
     <div id="menu">
-        <h1 style="color: #ff4e50; margin-bottom: 5px;">TON BURNER</h1>
-        <p style="margin-bottom: 25px;">Ready to burn some coins?</p>
+        <h1>TON BURNER</h1>
+        <p>Burn coins to save the ecosystem!</p>
         <button onclick="startGame()">START GAME 🔥</button>
     </div>
 
     <div id="over" style="display: none;">
-        <h1 style="color: #ff4e50;">GAME OVER</h1>
-        <p style="margin-bottom: 25px;">The only way back is a quick ad!</p>
+        <h1 style="font-size: 35px;">GAME OVER</h1>
+        <p>Your contribution was great!</p>
         <button onclick="showAd()">WATCH AD & REPLAY 📺</button>
     </div>
 
     <script>
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
+        // تنظیم ابعاد متناسب با موبایل
         canvas.width = window.innerWidth * 0.95;
         canvas.height = window.innerHeight * 0.8;
 
         let bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
         let pipes = []; let score = 0; let active = false; let frame = 0;
 
+        // تنظیمات AdsGram (بعد از رفع بن، ID بلاک خودت را اینجا بگذار)
         const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "int-34" }) : null;
 
         function startGame() {
             document.getElementById('menu').style.display = 'none';
-            active = true;
-            loop();
-        }
-
-        function showAd() {
-            if(AdController) {
-                AdController.show().then(() => location.reload()).catch(() => location.reload());
-            } else { location.reload(); }
-        }
-
-        function drawTon(x, y) {
-            ctx.fillStyle = "#00d4ff";
-            ctx.beginPath();
-            ctx.moveTo(x, y-15); ctx.lineTo(x+15, y); ctx.lineTo(x, y+15); ctx.lineTo(x-15, y);
-            ctx.closePath(); ctx.fill();
-        }
-
-        function loop() {
-            if(!active) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            bird.v += bird.g; bird.y += bird.v;
-            drawTon(bird.x, bird.y);
-
-            if(frame % 90 === 0) {
-                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 250) + 50 });
-            }
-
-            pipes.forEach(p => {
-                p.x -= 3.5;
-                ctx.fillStyle = "#2c3e50";
-                ctx.fillRect(p.x, 0, 50, p.t);
-                ctx.fillRect(p.x, p.t + 160, 50, canvas.height);
-                if(bird.x+12 > p.x && bird.x-12 < p.x+50 && (bird.y-12 < p.t || bird.y+12 > p.t+160)) active = false;
-                if(p.x < 50 && !p.passed) { p.passed = true; score++; document.getElementById('s').innerText = score; }
-            });
-
-            if(bird.y > canvas.height || bird.y < 0) active = false;
-            if(!active) document.getElementById('over').style.display = 'flex';
-            frame++; requestAnimationFrame(loop);
-        }
-
-        window.addEventListener('touchstart', (e) => { 
-            if(active) bird.v = -8; 
-            e.preventDefault(); 
-        }, {passive: false});
-    </script>
-</body>
-</html>
