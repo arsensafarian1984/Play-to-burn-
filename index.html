@@ -1,73 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <title>Test Game</title>
     <style>
-        body { margin: 0; background: #0b141a; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 20px; }
-        canvas { display: block; background: #1a1a1a; border: 2px solid #333; }
-        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 20px 50px; font-size: 24px; background: #ff4e50; border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; pointer-events: auto; }
+        body { background: black; color: white; text-align: center; padding-top: 50px; font-family: Arial; }
+        button { padding: 30px 60px; font-size: 30px; background: red; color: white; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div id="ui">🔥 SCORE: <span id="s">0</span></div>
-    <canvas id="c"></canvas>
-
-    <div id="menu">
-        <h1 style="color: #ff4e50;">TON BURNER</h1>
-        <button id="startBtn">START GAME 🔥</button>
-    </div>
-
-    <div id="over" style="display: none;">
-        <h1>GAME OVER</h1>
-        <button id="restartBtn">TRY AGAIN 📺</button>
-    </div>
+    <h1>TON BURNER TEST</h1>
+    <div id="status">PRESS START TO PLAY</div>
+    <br><br>
+    <button id="btn" onclick="start()">START 🔥</button>
 
     <script>
-        const canvas = document.getElementById('c');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let bird, pipes, score, active, frame;
-
-        function resetGame() {
-            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = []; score = 0; frame = 0; active = true;
-            document.getElementById('s').innerText = "0";
+        function start() {
+            console.log("Button clicked!");
+            document.getElementById('btn').style.backgroundColor = "green";
+            document.getElementById('status').innerHTML = "GAME STARTED! <br> (If you see this, the button works)";
+            alert("بازی با موفقیت شروع شد!");
         }
-
-        function loop() {
-            if(!active) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            bird.v += bird.g; bird.y += bird.v;
-            ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-15, bird.y-15, 30, 30);
-
-            if(frame % 100 === 0) pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 300) + 100 });
-            pipes.forEach(p => {
-                p.x -= 3; ctx.fillStyle = "#ff4e50";
-                ctx.fillRect(p.x, 0, 50, p.t); ctx.fillRect(p.x, p.t + 180, 50, canvas.height);
-                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+180)) active = false;
-                if(Math.abs(p.x - 50) < 2) { score++; document.getElementById('s').innerText = score; }
-            });
-            if(bird.y > canvas.height || bird.y < 0) active = false;
-            if(!active) document.getElementById('over').style.display = 'flex';
-            else { frame++; requestAnimationFrame(loop); }
-        }
-
-        document.getElementById('startBtn').addEventListener('click', () => {
-            document.getElementById('menu').style.display = 'none';
-            resetGame();
-            loop();
-        });
-
-        document.getElementById('restartBtn').addEventListener('click', () => {
-            location.reload();
-        });
-
-        window.addEventListener('touchstart', (e) => { if(active) bird.v = -8; e.preventDefault(); }, {passive: false});
     </script>
 </body>
 </html>
