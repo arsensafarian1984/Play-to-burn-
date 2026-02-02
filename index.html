@@ -5,25 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #050505; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 22px; text-shadow: 0 0 10px #00d4ff; }
-        canvas { display: block; background: #080808; border-radius: 10px; box-shadow: 0 0 20px rgba(0,212,255,0.1); }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 20px; text-shadow: 0 0 10px #00d4ff; }
+        canvas { display: block; background: #080808; border-radius: 10px; }
         #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 15px 45px; font-size: 22px; background: linear-gradient(to bottom, #00d4ff, #005a8d); border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.4); text-transform: uppercase; }
-        h1 { color: #00d4ff; font-size: 35px; text-shadow: 0 0 15px #00d4ff; margin-bottom: 20px; }
+        button { padding: 15px 40px; font-size: 22px; background: linear-gradient(to bottom, #00d4ff, #005a8d); border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.5); }
     </style>
 </head>
 <body>
-    <div id="ui">🔥 TON BURNT: <span id="s">0</span></div>
+    <div id="ui">🔥 BURNT: <span id="s">0</span></div>
     <canvas id="c"></canvas>
 
     <div id="menu">
-        <h1>TON BURNER</h1>
+        <h1 style="color:#00d4ff;">TON BURNER</h1>
         <button id="startBtn">START MISSION 🚀</button>
     </div>
 
     <div id="over" style="display: none;">
-        <h1 style="color: #ff4500;">MISSION FAILED</h1>
-        <button onclick="location.reload()">REBOOT 🔄</button>
+        <h1 style="color: #ff4500;">GAME OVER</h1>
+        <button onclick="location.reload()">TRY AGAIN</button>
     </div>
 
     <script>
@@ -32,35 +31,35 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // --- بارگذاری عکس لوگوی واقعی TON ---
+        // لود کردن عکس لوگوی TON
         const tonImg = new Image();
         tonImg.src = 'https://cryptologos.cc/logos/toncoin-ton-logo.png';
 
         let bird, pipes, score, active, frame, gameSpeed;
 
         function resetGame() {
-            bird = { x: 70, y: canvas.height/2, v: 0, g: 0.48, angle: 0 };
-            pipes = []; score = 0; frame = 0; gameSpeed = 3.6; active = true;
+            bird = { x: 60, y: canvas.height/2, v: 0, g: 0.5, angle: 0 };
+            pipes = []; score = 0; frame = 0; gameSpeed = 3.5; active = true;
         }
 
         function drawFire(x, y, w, h, isTop) {
-            let flicker = Math.random() * 10;
+            let flicker = Math.random() * 8;
             let grad = ctx.createLinearGradient(x, 0, x + w, 0);
-            grad.addColorStop(0, "#ff3300");
-            grad.addColorStop(0.5, "#ffcc00");
-            grad.addColorStop(1, "#ff3300");
+            grad.addColorStop(0, "#ff4500");
+            grad.addColorStop(0.5, "#ffff00");
+            grad.addColorStop(1, "#ff4500");
 
             ctx.save();
-            ctx.shadowBlur = 20 + flicker;
+            ctx.shadowBlur = 15 + flicker;
             ctx.shadowColor = "#ff4500";
             ctx.fillStyle = grad;
             ctx.beginPath();
             if(isTop) {
-                ctx.moveTo(x, 0); ctx.lineTo(x + w, 0);
-                ctx.lineTo(x + w + flicker, h); ctx.quadraticCurveTo(x + w/2, h + 25, x - flicker, h);
+                ctx.moveTo(x, 0); ctx.lineTo(x+w, 0);
+                ctx.lineTo(x+w+flicker/2, h); ctx.quadraticCurveTo(x+w/2, h+20, x-flicker/2, h);
             } else {
-                ctx.moveTo(x - flicker, y); ctx.quadraticCurveTo(x + w/2, y - 25, x + w + flicker, y);
-                ctx.lineTo(x + w, canvas.height); ctx.lineTo(x, canvas.height);
+                ctx.moveTo(x-flicker/2, y); ctx.quadraticCurveTo(x+w/2, y-20, x+w+flicker/2, y);
+                ctx.lineTo(x+w, canvas.height); ctx.lineTo(x, canvas.height);
             }
             ctx.fill();
             ctx.restore();
@@ -70,35 +69,29 @@
             if(!active) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
+            // حرکت پرنده
             bird.v += bird.g; bird.y += bird.v;
-            bird.angle = Math.min(Math.PI/6, Math.max(-Math.PI/6, bird.v/12));
+            bird.angle = Math.min(Math.PI/4, Math.max(-Math.PI/4, bird.v/10));
 
-            // --- رسم لوگوی متحرک و درخشان ---
+            // رسم عکس لوگو با چرخش نرم
             ctx.save();
             ctx.translate(bird.x, bird.y);
             ctx.rotate(bird.angle);
-            ctx.shadowBlur = 20; ctx.shadowColor = "#00d4ff";
-            // اگر عکس لود شده باشد آن را رسم می‌کند
-            if (tonImg.complete) {
-                ctx.drawImage(tonImg, -22, -22, 44, 44);
-            } else {
-                // جایگزین موقت تا لود شدن عکس
-                ctx.fillStyle = "#00d4ff";
-                ctx.fillRect(-20, -20, 40, 40);
-            }
+            ctx.shadowBlur = 15; ctx.shadowColor = "#00d4ff";
+            ctx.drawImage(tonImg, -20, -20, 40, 40); // رسم عکس به جای لوزی
             ctx.restore();
 
-            if(frame % 95 === 0) {
-                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 380) + 120, passed: false });
+            if(frame % 100 === 0) {
+                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 350) + 100, passed: false });
             }
 
             pipes.forEach(p => {
                 p.x -= gameSpeed;
-                drawFire(p.x, 0, 55, p.t, true);
-                drawFire(p.x, p.t + 185, 55, canvas.height, false);
+                drawFire(p.x, 0, 50, p.t, true);
+                drawFire(p.x, p.t + 180, 50, canvas.height, false);
 
-                if(bird.x+18 > p.x && bird.x-18 < p.x+55 && (bird.y-18 < p.t || bird.y+18 > p.t+185)) active = false;
-                if(p.x < 70 && !p.passed) { p.passed = true; score++; gameSpeed += 0.12; }
+                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+180)) active = false;
+                if(p.x < 60 && !p.passed) { p.passed = true; score++; gameSpeed += 0.1; }
             });
 
             document.getElementById('s').innerText = score;
