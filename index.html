@@ -3,13 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="https://sad.adsgram.ai/js/adsgram-adbox.js" async></script>
     <style>
         body { margin: 0; background: #0b141a; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
         #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 20px; }
-        canvas { display: block; background: #0b141a; border: 1px solid #333; }
-        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 20px 40px; font-size: 22px; background: #ff4e50; border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; }
+        canvas { display: block; background: #0b141a; }
+        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
+        button { padding: 20px 45px; font-size: 22px; background: #ff4e50; border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(255,78,80,0.4); }
     </style>
 </head>
 <body>
@@ -17,13 +16,14 @@
     <canvas id="c"></canvas>
 
     <div id="menu">
-        <h1 style="color: #ff4e50;">TON BURNER</h1>
+        <h1 style="color: #ff4e50; margin-bottom: 20px;">TON BURNER</h1>
         <button id="startBtn">START GAME 🔥</button>
     </div>
 
     <div id="over" style="display: none;">
-        <h1>GAME OVER</h1>
-        <button id="adBtn">WATCH AD & REPLAY 📺</button>
+        <h1 style="color: #ff4e50;">BOOM!</h1>
+        <p>Watch Ad to Replay</p>
+        <button id="adBtn">WATCH AD 📺</button>
     </div>
 
     <script>
@@ -44,35 +44,37 @@
             if(!active) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             bird.v += bird.g; bird.y += bird.v;
-            ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x - 15, bird.y - 15, 30, 30);
+            ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x - 15, bird.y - 15, 30, 30); // رسم الماس
 
-            if(frame % 90 === 0) {
-                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 250) + 50 });
-            }
+            if(frame % 100 === 0) pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 250) + 50 });
+            
             pipes.forEach(p => {
                 p.x -= 3; ctx.fillStyle = "#ff4e50";
                 ctx.fillRect(p.x, 0, 50, p.t); ctx.fillRect(p.x, p.t + 180, 50, canvas.height);
                 if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+180)) active = false;
                 if(Math.abs(p.x - 50) < 2) { score++; document.getElementById('s').innerText = score; }
             });
+
             if(bird.y > canvas.height || bird.y < 0) active = false;
             if(!active) document.getElementById('over').style.display = 'flex';
             else { frame++; requestAnimationFrame(loop); }
         }
 
-        // مدیریت کلیک برای شروع
         document.getElementById('startBtn').onclick = () => {
             document.getElementById('menu').style.display = 'none';
-            resetGame();
-            loop();
+            resetGame(); loop();
         };
 
-        // مدیریت کلیک برای تبلیغ (حتی اگر بن بود بازی ریست شود)
         document.getElementById('adBtn').onclick = () => {
-            if (window.Adsgram) {
+            // فقط در زمان نیاز به تبلیغ، کتابخانه لود شود
+            const script = document.createElement('script');
+            script.src = "https://sad.adsgram.ai/js/adsgram-adbox.js";
+            script.onload = () => {
                 const AdController = window.Adsgram.init({ blockId: "int-34" });
                 AdController.show().finally(() => { location.reload(); });
-            } else { location.reload(); }
+            };
+            script.onerror = () => { location.reload(); };
+            document.head.appendChild(script);
         };
 
         window.addEventListener('touchstart', (e) => { if(active) bird.v = -8; e.preventDefault(); }, {passive: false});
