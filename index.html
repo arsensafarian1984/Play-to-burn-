@@ -1,36 +1,96 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تست انتشار</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        /* رنگ زرد انتخاب کردم که با نسخه‌های قبلی کاملا متفاوت باشد */
-        body { 
-            background-color: #FFD700; 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            font-family: Tahoma, sans-serif;
-        }
-        h1 { color: #000; font-size: 30px; }
-        button { 
-            padding: 20px 40px; 
-            font-size: 25px; 
-            background-color: #000; 
-            color: #fff; 
-            border: none; 
-            border-radius: 10px; 
-            cursor: pointer; 
-        }
+        body { margin: 0; background: #0b141a; overflow: hidden; font-family: sans-serif; touch-action: none; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #00d4ff; z-index: 10; font-weight: bold; font-size: 22px; }
+        canvas { display: block; background: #0b141a; border: 2px solid #333; border-radius: 10px; }
+        #menu, #over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
+        button { padding: 20px 50px; font-size: 24px; background: linear-gradient(45deg, #ff4e50, #f9d423); border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(255,78,80,0.4); }
+        h1 { color: #ff4e50; font-size: 40px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <h1>نسخه جدید لود شد! ✅</h1>
-    <p>اگر این صفحه زرد است، یعنی گیت‌هاب آپدیت شده.</p>
-    <button onclick="alert('دکمه کار می‌کند!')">شروع بازی</button>
+    <div id="ui">🔥 TON BURNT: <span id="s">0</span></div>
+    <canvas id="c"></canvas>
+
+    <div id="menu">
+        <h1>TON BURNER</h1>
+        <button onclick="startGame()">START GAME 🔥</button>
+    </div>
+
+    <div id="over" style="display: none;">
+        <h1>BOOM!</h1>
+        <p style="margin-bottom:20px;">Watch Ad to Recover</p>
+        <button id="adBtn">RECOVER & PLAY 📺</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let bird, pipes, score, active, frame;
+
+        function resetGame() {
+            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
+            pipes = []; score = 0; frame = 0; active = true;
+            document.getElementById('s').innerText = "0";
+        }
+
+        function startGame() {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('over').style.display = 'none';
+            resetGame();
+            loop();
+        }
+
+        function loop() {
+            if(!active) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            bird.v += bird.g; bird.y += bird.v;
+            // رسم الماس TON
+            ctx.fillStyle = "#00d4ff";
+            ctx.beginPath();
+            ctx.moveTo(bird.x, bird.y-20); ctx.lineTo(bird.x+20, bird.y); ctx.lineTo(bird.x, bird.y+20); ctx.lineTo(bird.x-20, bird.y);
+            ctx.closePath(); ctx.fill();
+
+            if(frame % 90 === 0) {
+                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - 300) + 50, passed: false });
+            }
+
+            pipes.forEach(p => {
+                p.x -= 3.5;
+                ctx.fillStyle = "#ff4e50";
+                ctx.fillRect(p.x, 0, 50, p.t);
+                ctx.fillRect(p.x, p.t + 170, 50, canvas.height);
+
+                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+170)) active = false;
+                if(p.x < 50 && !p.passed) { p.passed = true; score++; document.getElementById('s').innerText = score; }
+            });
+
+            if(bird.y > canvas.height || bird.y < 0) active = false;
+            if(!active) document.getElementById('over').style.display = 'flex';
+            else { frame++; requestAnimationFrame(loop); }
+        }
+
+        // لود کردن تبلیغ فقط موقع کلیک روی دکمه باخت
+        document.getElementById('adBtn').onclick = function() {
+            const script = document.createElement('script');
+            script.src = "https://sad.adsgram.ai/js/adsgram-adbox.js";
+            script.onload = () => {
+                const AdController = window.Adsgram.init({ blockId: "int-34" });
+                AdController.show().finally(() => { location.reload(); });
+            };
+            script.onerror = () => { location.reload(); };
+            document.head.appendChild(script);
+        };
+
+        window.addEventListener('touchstart', (e) => { if(active) bird.v = -8; e.preventDefault(); }, {passive: false});
+    </script>
 </body>
 </html>
