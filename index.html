@@ -2,24 +2,34 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; }
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; -webkit-user-select: none; }
+        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
+        #best { font-size: 14px; color: #fff; display: block; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
-        button { padding: 20px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        button { padding: 20px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.5); }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="s">0</span></div>
+    <div id="ui">
+        SCORE: <span id="s">0</span>
+        <span id="best">BEST: <span id="hs">0</span></span>
+    </div>
     <div id="menu">
-        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
-        <button id="b">START GAME</button>
+        <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
+        <button id="b">START MISSION 🔥</button>
     </div>
     <canvas id="c"></canvas>
 
     <script>
+        // آماده‌سازی محیط تلگرام
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // باز کردن بازی به صورت تمام صفحه در تلگرام
+        tg.ready();
+
         var canvas = document.getElementById('c');
         var ctx = canvas.getContext('2d');
         var btn = document.getElementById('b');
@@ -30,10 +40,12 @@
         var bird, pipes, score, active = false;
         var gameSpeed = 3.5;
         var pipeGap = 240;
-        
-        // متغیرهای کنترل زمان
         var lastUpdate = Date.now();
-        var timestep = 1000 / 60; // اجرای دقیق ۶۰ بار در ثانیه
+        var timestep = 1000 / 60;
+
+        // بارگذاری بالاترین امتیاز از حافظه گوشی
+        var highScore = localStorage.getItem('ton_highscore') || 0;
+        document.getElementById('hs').innerHTML = highScore;
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -44,9 +56,7 @@
 
         function reset() {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = [];
-            score = 0;
-            gameSpeed = 3.5;
+            pipes = []; score = 0; gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('s').innerHTML = "0";
@@ -66,17 +76,33 @@
                 var p = pipes[i];
                 p.x -= gameSpeed;
 
-                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) active = false;
+                // برخورد
+                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) {
+                    gameOver();
+                }
                 
                 if(!p.scored && p.x < bird.x) {
                     p.scored = true;
                     score++;
                     document.getElementById('s').innerHTML = score;
                     gameSpeed += 0.08;
+                    // لرزش ظریف هنگام امتیاز گرفتن در تلگرام
+                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
                 }
             }
             if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
-            if(bird.y > canvas.height || bird.y < 0) active = false;
+            if(bird.y > canvas.height || bird.y < 0) gameOver();
+        }
+
+        function gameOver() {
+            active = false;
+            if(score > highScore) {
+                highScore = score;
+                localStorage.setItem('ton_highscore', highScore);
+                document.getElementById('hs').innerHTML = highScore;
+            }
+            // لرزش شدید هنگام باخت
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
         }
 
         function draw() {
@@ -111,17 +137,13 @@
                 document.getElementById('t').innerHTML = "SCORE: " + score;
                 return;
             }
-
             var now = Date.now();
             var delta = now - lastUpdate;
-
-            // این حلقه باعث می‌شود بازی در همه گوشی‌ها با یک سرعت اجرا شود
             while(delta >= timestep) {
                 update();
                 delta -= timestep;
                 lastUpdate += timestep;
             }
-
             draw();
             requestAnimationFrame(loop);
         }
