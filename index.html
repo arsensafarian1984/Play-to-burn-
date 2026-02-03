@@ -4,119 +4,81 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 26px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; pointer-events: none; z-index: 10; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 20px 60px; font-size: 24px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
         canvas { display: block; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font: bold 24px Arial; pointer-events: none; }
+        #m { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 100; }
+        button { padding: 15px 40px; font-size: 20px; background: #00d4ff; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
-    <div id="menu">
-        <h1 id="mTitle" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
-        <button id="startBtn">START GAME 🔥</button>
+    <div id="m">
+        <h1 id="t">TON BURNER</h1>
+        <button id="b">START MISSION 🔥</button>
     </div>
 
     <script>
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
-        const tonImg = new Image();
-        tonImg.src = 'https://cryptologos.cc/logos/toncoin-ton-logo.png';
+        
+        // عکس‌های بهینه و کم‌حجم
+        const imgTon = new Image();
+        imgTon.src = 'https://cryptologos.cc/logos/toncoin-ton-logo.png?v=025';
+        
+        const imgFire = new Image();
+        imgFire.src = 'https://i.imgur.com/6YvMvXp.png'; // یک شعله آتش شفاف و سبک
 
         let bird, pipes, score, active = false, frame = 0;
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.onresize = resize;
-        resize();
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.onresize = resize; resize();
 
         function reset() {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = [];
-            score = 0;
-            frame = 0;
-            active = true;
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('s').innerText = "0";
-            animate(); // اجرای حلقه انیمیشن
+            pipes = []; score = 0; frame = 0; active = true;
+            document.getElementById('m').style.display = 'none';
+            loop();
         }
 
-        function drawFire(x, y, w, h, isTop) {
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = "#ff4400";
-            let g = ctx.createLinearGradient(x, 0, x+w, 0);
-            g.addColorStop(0, "#ff1100"); g.addColorStop(0.5, "#ffcc00"); g.addColorStop(1, "#ff1100");
-            ctx.fillStyle = g;
-            ctx.fillRect(x, isTop ? 0 : y, w, isTop ? y : canvas.height - y);
-            ctx.shadowBlur = 0;
-        }
-
-        function animate() {
+        function loop() {
             if(!active) return;
-
-            ctx.fillStyle = "rgba(0, 0, 0, 0.3)"; // افکت کشیدگی حرکت
+            ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // فیزیک پرنده
-            bird.v += bird.g;
-            bird.y += bird.v;
-
-            // رسم لوگو
-            ctx.save();
+            bird.v += bird.g; bird.y += bird.v;
+            
+            // رسم لوگوی TON
             ctx.shadowBlur = 15; ctx.shadowColor = "#00d4ff";
-            if(tonImg.complete) {
-                ctx.drawImage(tonImg, bird.x-20, bird.y-20, 40, 40);
-            } else {
-                ctx.fillStyle = "#00d4ff";
-                ctx.beginPath(); ctx.arc(bird.x, bird.y, 20, 0, Math.PI*2); ctx.fill();
-            }
-            ctx.restore();
+            ctx.drawImage(imgTon, bird.x-22, bird.y-22, 44, 44);
+            ctx.shadowBlur = 0;
 
-            // موانع
-            if(frame % 90 === 0) {
-                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-300)+50 });
-            }
+            if(frame % 90 === 0) pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-300)+50 });
 
-            pipes.forEach((p, i) => {
+            pipes.forEach(p => {
                 p.x -= 4;
-                drawFire(p.x, p.t, 50, 0, true);
-                drawFire(p.x, p.t+170, 50, 0, false);
+                // رسم شعله‌های آتش به جای لوله
+                ctx.save();
+                ctx.shadowBlur = 20; ctx.shadowColor = "orange";
+                ctx.drawImage(imgFire, p.x, 0, 60, p.t); // آتش بالا
+                ctx.scale(1, -1); // برعکس کردن آتش برای پایین
+                ctx.drawImage(imgFire, p.x, -(canvas.height), 60, canvas.height - (p.t + 170));
+                ctx.restore();
 
-                // تشخیص برخورد
-                if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y-15 < p.t || bird.y+15 > p.t+170)) {
-                    die();
-                }
-                // امتیاز
-                if(p.x === 10) { score++; document.getElementById('s').innerText = score; }
+                if(bird.x+18 > p.x && bird.x-18 < p.x+60 && (bird.y-18 < p.t || bird.y+18 > p.t+170)) active = false;
+                if(p.x === 48) { score++; document.getElementById('s').innerText = score; }
             });
 
-            pipes = pipes.filter(p => p.x > -60);
-            if(bird.y > canvas.height || bird.y < 0) die();
-
-            frame++;
-            requestAnimationFrame(animate);
+            pipes = pipes.filter(p => p.x > -70);
+            if(bird.y > canvas.height || bird.y < 0) active = false;
+            if(!active) { document.getElementById('t').innerText = "SCORE: "+score; document.getElementById('m').style.display = 'flex'; }
+            
+            frame++; requestAnimationFrame(loop);
         }
 
-        function die() {
-            active = false;
-            document.getElementById('mTitle').innerText = "SCORE: " + score;
-            document.getElementById('startBtn').innerText = "RETRY 🔄";
-            document.getElementById('menu').style.display = 'flex';
-        }
-
-        document.getElementById('startBtn').onclick = (e) => {
-            e.stopPropagation();
-            reset();
-        };
-
-        window.onmousedown = window.ontouchstart = (e) => {
-            if(active) bird.v = -8;
-            if(e.type === 'touchstart' && active) e.preventDefault();
-        };
+        document.getElementById('b').onclick = reset;
+        window.onmousedown = window.ontouchstart = () => { if(active) bird.v = -8; };
     </script>
 </body>
 </html>
