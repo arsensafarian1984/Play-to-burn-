@@ -1,50 +1,49 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 28px; font-weight: bold; z-index: 10; pointer-events: none; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 15px 50px; font-size: 20px; background: #00d4ff; border: none; border-radius: 10px; color: #000; font-weight: bold; cursor: pointer; }
-        canvas { display: block; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font: bold 24px Arial; z-index: 10; pointer-events: none; }
+        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 100; }
+        button { padding: 15px 50px; font-size: 20px; background: #00d4ff; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        canvas { display: block; background: #000; }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
     <div id="menu">
-        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
+        <h1 id="t">TON BURNER</h1>
         <button id="b">START GAME</button>
     </div>
 
     <script>
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('b');
         
-        const imgTon = new Image(); imgTon.src = 'logo.png';
-        const imgFire = new Image(); imgFire.src = 'fire.png';
+        // لود عکس‌ها با سیستم خطاگیر
+        let imgTon = new Image(); imgTon.src = 'logo.png';
+        let imgFire = new Image(); imgFire.src = 'fire.png';
 
-        let bird, pipes, score, active = false;
-        let gameSpeed = 210; 
+        let bird, pipes, score, active = false, lastTime = 0;
+        let gameSpeed = 200;
         let pipeGap = 240;
-        let lastTime = 0;
-        let spawnTimer = 0;
 
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
-        window.addEventListener('resize', resize);
+        window.onresize = resize;
         resize();
 
         function reset() {
-            bird = { x: 60, y: canvas.height / 2, v: 0, g: 25 };
-            pipes = []; 
-            score = 0; 
-            gameSpeed = 210;
-            spawnTimer = 0;
+            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.6 };
+            pipes = [];
+            score = 0;
+            gameSpeed = 200;
             active = true;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('s').innerText = "0";
@@ -52,83 +51,85 @@
             requestAnimationFrame(loop);
         }
 
-        function loop(timestamp) {
-            if (!active) return;
+        function loop(now) {
+            if(!active) return;
+            let dt = (now - lastTime) / 1000;
+            if(dt > 0.1) dt = 0.016;
+            lastTime = now;
 
-            let dt = (timestamp - lastTime) / 1000; 
-            if (dt > 0.1) dt = 0.016; 
-            lastTime = timestamp;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // فیزیک
+            // پرنده
             bird.v += bird.g;
-            bird.y += bird.v * dt * 60;
-            ctx.drawImage(imgTon, bird.x - 25, bird.y - 25, 50, 50);
-
-            // تولید موانع
-            spawnTimer += dt;
-            let spawnRate = Math.max(0.8, 1.6 - (score * 0.05)); 
-            if (spawnTimer >= spawnRate) {
-                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - (pipeGap + 200)) + 100, scored: false });
-                spawnTimer = 0;
+            bird.y += bird.v;
+            
+            if(imgTon.complete && imgTon.naturalWidth !== 0) {
+                ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
+            } else {
+                ctx.fillStyle = "#00d4ff";
+                ctx.fillRect(bird.x-20, bird.y-20, 40, 40); // اگر عکس لود نشد مربع آبی بکش
             }
 
-            pipes.forEach(p => {
-                p.x -= gameSpeed * dt;
-                
-                // رسم آتش
-                ctx.save();
-                ctx.translate(p.x + 30, p.t);
-                ctx.scale(1, -1);
-                ctx.drawImage(imgFire, -30, 0, 60, p.t);
-                ctx.restore();
-                ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
+            // لوله‌ها
+            if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 250) {
+                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
+            }
 
-                // برخورد
-                if (bird.x + 18 > p.x && bird.x - 18 < p.x + 60) {
-                    if (bird.y - 18 < p.t || bird.y + 18 > p.t + pipeGap) active = false;
+            pipes.forEach((p, i) => {
+                p.x -= gameSpeed * dt;
+
+                if(imgFire.complete && imgFire.naturalWidth !== 0) {
+                    // آتش بالا
+                    ctx.save();
+                    ctx.translate(p.x + 30, p.t);
+                    ctx.scale(1, -1);
+                    ctx.drawImage(imgFire, -30, 0, 60, p.t);
+                    ctx.restore();
+                    // آتش پایین
+                    ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
+                } else {
+                    ctx.fillStyle = "orange";
+                    ctx.fillRect(p.x, 0, 60, p.t);
+                    ctx.fillRect(p.x, p.t + pipeGap, 60, canvas.height);
                 }
 
+                // برخورد
+                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+15 > p.t+pipeGap)) active = false;
+                
                 // امتیاز
-                if (p.x < bird.x && !p.scored) { 
-                    p.scored = true; score++; 
+                if(!p.scored && p.x < bird.x) {
+                    p.scored = true;
+                    score++;
                     document.getElementById('s').innerText = score;
-                    gameSpeed += 8;
+                    gameSpeed += 5;
                 }
             });
 
             pipes = pipes.filter(p => p.x > -100);
-            if (bird.y > canvas.height || bird.y < 0) active = false;
+            if(bird.y > canvas.height || bird.y < 0) active = false;
 
-            if (!active) {
-                document.getElementById('t').innerText = "SCORE: " + score;
+            if(!active) {
                 document.getElementById('menu').style.display = 'flex';
-                return;
+                document.getElementById('t').innerText = "SCORE: " + score;
+            } else {
+                requestAnimationFrame(loop);
             }
-            requestAnimationFrame(loop);
         }
 
-        // سیستم کلیک ساده و مستقیم برای دکمه
-        document.getElementById('b').addEventListener('click', function(e) {
+        // کنترلر لمس سراسری
+        const trigger = (e) => {
+            if(!active) return;
+            bird.v = -8;
+            if(e.cancelable) e.preventDefault();
+        };
+
+        btn.addEventListener('click', (e) => {
             e.stopPropagation();
             reset();
         });
 
-        // سیستم پرش
-        const jumpAction = function(e) {
-            if (active) {
-                bird.v = -8;
-            }
-        };
-
-        window.addEventListener('mousedown', jumpAction);
-        window.addEventListener('touchstart', function(e) {
-            jumpAction();
-            if(active) e.preventDefault(); 
-        }, {passive: false});
-
+        window.addEventListener('touchstart', trigger, {passive: false});
+        window.addEventListener('mousedown', trigger);
     </script>
 </body>
 </html>
