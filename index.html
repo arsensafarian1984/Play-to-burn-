@@ -1,13 +1,13 @@
-// ۱. اضافه کردن متغیر سرعت به متغیرهای اصلی
+// ۱. متغیرهای اصلی
 let bird, pipes, score, active = false, frame = 0;
-let gameSpeed = 3.5; // سرعت اولیه
+let gameSpeed = 3.5; 
 
 function reset() {
     bird = { x: 60, y: canvas.height/2, v: 0, g: 0.5 };
     pipes = []; 
     score = 0; 
     frame = 0; 
-    gameSpeed = 3.5; // ریست کردن سرعت در هر بار شروع مجدد
+    gameSpeed = 3.5; 
     active = true;
     document.getElementById('menu').style.display = 'none';
     loop();
@@ -23,16 +23,17 @@ function loop() {
     
     ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
 
-    // ۲. مدیریت فاصله موانع بر اساس سرعت (هرچه سرعت بیشتر، فاصله زمانی کمتر)
-    let spawnRate = Math.max(50, 100 - (score * 2)); 
+    // ۲. مدیریت فاصله موانع (عدد ۱۴۰ فاصله افقی را بیشتر می‌کند)
+    // با افزایش امتیاز، این فاصله به تدریج کمتر می‌شود تا بازی سخت بماند
+    let spawnRate = Math.max(70, 140 - (score * 2)); 
     if(frame % Math.floor(spawnRate) === 0) {
         pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-350)+100, scored: false });
     }
 
     pipes.forEach(p => {
-        p.x -= gameSpeed; // ۳. استفاده از متغیر سرعت به جای عدد ثابت
+        p.x -= gameSpeed; 
         
-        // رسم شعله‌ها (مثل قبل)
+        // رسم شعله‌ها
         ctx.save();
         ctx.translate(p.x + 30, p.t);
         ctx.scale(1, -1);
@@ -40,14 +41,14 @@ function loop() {
         ctx.restore();
         ctx.drawImage(imgFire, p.x, p.t + 180, 60, canvas.height - (p.t + 180));
 
+        // برخورد
         if(bird.x+20 > p.x && bird.x-20 < p.x+60 && (bird.y-20 < p.t || bird.y+20 > p.t+180)) active = false;
         
+        // امتیاز و افزایش سرعت
         if(p.x < 60 && !p.scored) { 
             p.scored = true; 
             score++; 
             document.getElementById('s').innerText = score;
-            
-            // ۴. افزایش تدریجی سرعت با هر امتیاز
             gameSpeed += 0.15; 
         }
     });
