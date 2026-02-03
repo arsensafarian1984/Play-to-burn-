@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TON BURNER - Wide Gap</title>
+    <title>TON BURNER - Fast & Wide</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 28px; font-weight: bold; z-index: 10; pointer-events: none; }
@@ -31,9 +31,7 @@
 
         let bird, pipes, score, active = false, frame = 0;
         let gameSpeed = 3.5; 
-        
-        // --- متغیر کلیدی برای فاصله دو سر میله (شکاف عبور) ---
-        let pipeGap = 240; // این عدد را هر چه بزرگتر کنی، عبور راحت‌تر می‌شود
+        let pipeGap = 240; // دهانه عریض (همانی که خواستی)
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -61,8 +59,8 @@
             bird.y += bird.v;
             ctx.drawImage(imgTon, bird.x - 25, bird.y - 25, 50, 50);
 
-            // فاصله افقی ستون‌ها از هم (ظهور لوله جدید)
-            let spawnRate = Math.max(80, 160 - (score * 2)); 
+            // --- تغییر اصلی اینجاست: بازگشت به فاصله افقی کم (عدد 100) ---
+            let spawnRate = Math.max(50, 100 - (score * 2)); 
             if (frame % Math.floor(spawnRate) === 0) {
                 pipes.push({ 
                     x: canvas.width, 
@@ -81,10 +79,10 @@
                 ctx.drawImage(imgFire, -30, 0, 60, p.t);
                 ctx.restore();
 
-                // رسم شعله پایین (با در نظر گرفتن شکاف pipeGap)
+                // رسم شعله پایین
                 ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
 
-                // تشخیص برخورد دقیق با شکاف جدید
+                // تشخیص برخورد
                 if (bird.x + 18 > p.x && bird.x - 18 < p.x + 60) {
                     if (bird.y - 18 < p.t || bird.y + 18 > p.t + pipeGap) {
                         active = false;
