@@ -3,59 +3,20 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TON BURNER</title>
+    <title>TON BURNER - Wide Gap</title>
     <style>
-        body { 
-            margin: 0; 
-            background: #000; 
-            overflow: hidden; 
-            touch-action: none; 
-            font-family: sans-serif; 
-        }
-        #ui { 
-            position: absolute; 
-            top: 20px; 
-            width: 100%; 
-            text-align: center; 
-            color: #00d4ff; 
-            font-size: 28px; 
-            font-weight: bold; 
-            text-shadow: 0 0 10px rgba(0,212,255,0.5);
-            z-index: 10; 
-            pointer-events: none; 
-        }
-        #menu { 
-            position: absolute; 
-            inset: 0; 
-            background: rgba(0,0,0,0.85); 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            color: white; 
-            z-index: 100; 
-        }
-        h1 { color: #00d4ff; margin-bottom: 20px; font-size: 36px; }
-        button { 
-            padding: 15px 60px; 
-            font-size: 20px; 
-            background: #00d4ff; 
-            border: none; 
-            border-radius: 50px; 
-            color: #000; 
-            font-weight: bold; 
-            cursor: pointer; 
-            box-shadow: 0 0 20px rgba(0,212,255,0.4);
-        }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 28px; font-weight: bold; z-index: 10; pointer-events: none; }
+        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
+        h1 { color: #00d4ff; font-size: 36px; }
+        button { padding: 15px 60px; font-size: 20px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; }
         canvas { display: block; }
     </style>
 </head>
 <body>
 
     <div id="ui">SCORE: <span id="s">0</span></div>
-    
     <canvas id="c"></canvas>
-
     <div id="menu">
         <h1 id="t">TON BURNER</h1>
         <button id="b">START MISSION 🔥</button>
@@ -65,14 +26,14 @@
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
         
-        // لود کردن عکس‌ها (حتماً باید logo.png و fire.png کنار این فایل باشند)
-        const imgTon = new Image(); 
-        imgTon.src = 'logo.png';
-        const imgFire = new Image(); 
-        imgFire.src = 'fire.png';
+        const imgTon = new Image(); imgTon.src = 'logo.png';
+        const imgFire = new Image(); imgFire.src = 'fire.png';
 
         let bird, pipes, score, active = false, frame = 0;
-        let gameSpeed = 3.5; // سرعت شروع
+        let gameSpeed = 3.5; 
+        
+        // --- متغیر کلیدی برای فاصله دو سر میله (شکاف عبور) ---
+        let pipeGap = 240; // این عدد را هر چه بزرگتر کنی، عبور راحت‌تر می‌شود
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -83,10 +44,7 @@
 
         function reset() {
             bird = { x: 60, y: canvas.height / 2, v: 0, g: 0.5 };
-            pipes = []; 
-            score = 0; 
-            frame = 0; 
-            gameSpeed = 3.5; 
+            pipes = []; score = 0; frame = 0; gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('s').innerText = "0";
@@ -96,95 +54,67 @@
         function loop() {
             if (!active) return;
 
-            // پس‌زمینه
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // فیزیک پرنده (لوگوی TON)
             bird.v += bird.g;
             bird.y += bird.v;
-            
-            // رسم لوگوی TON
-            ctx.save();
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "#00d4ff";
             ctx.drawImage(imgTon, bird.x - 25, bird.y - 25, 50, 50);
-            ctx.restore();
 
-            // تولید موانع با فاصله افقی بیشتر (عدد 160)
+            // فاصله افقی ستون‌ها از هم (ظهور لوله جدید)
             let spawnRate = Math.max(80, 160 - (score * 2)); 
             if (frame % Math.floor(spawnRate) === 0) {
-                // t ارتفاع شکاف را تعیین می‌کند
                 pipes.push({ 
                     x: canvas.width, 
-                    t: Math.random() * (canvas.height - 350) + 100, 
+                    t: Math.random() * (canvas.height - (pipeGap + 200)) + 100, 
                     scored: false 
                 });
             }
 
-            // مدیریت و رسم موانع
             pipes.forEach(p => {
                 p.x -= gameSpeed;
                 
-                // شعله بالا (معکوس)
+                // رسم شعله بالا
                 ctx.save();
                 ctx.translate(p.x + 30, p.t);
                 ctx.scale(1, -1);
                 ctx.drawImage(imgFire, -30, 0, 60, p.t);
                 ctx.restore();
 
-                // شعله پایین
-                ctx.drawImage(imgFire, p.x, p.t + 180, 60, canvas.height - (p.t + 180));
+                // رسم شعله پایین (با در نظر گرفتن شکاف pipeGap)
+                ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
 
-                // تشخیص برخورد (Collision)
+                // تشخیص برخورد دقیق با شکاف جدید
                 if (bird.x + 18 > p.x && bird.x - 18 < p.x + 60) {
-                    if (bird.y - 18 < p.t || bird.y + 18 > p.t + 180) {
+                    if (bird.y - 18 < p.t || bird.y + 18 > p.t + pipeGap) {
                         active = false;
                     }
                 }
 
-                // ثبت امتیاز و افزایش سرعت
                 if (p.x < bird.x && !p.scored) { 
-                    p.scored = true; 
-                    score++; 
+                    p.scored = true; score++; 
                     document.getElementById('s').innerText = score;
-                    gameSpeed += 0.15; // هر امتیاز بازی را سریع‌تر می‌کند
+                    gameSpeed += 0.15;
                 }
             });
 
-            // حذف لوله‌های خارج شده از صفحه
             pipes = pipes.filter(p => p.x > -100);
-
-            // برخورد با سقف و کف
             if (bird.y > canvas.height || bird.y < 0) active = false;
 
-            // پایان بازی
             if (!active) {
                 document.getElementById('t').innerText = "SCORE: " + score;
                 document.getElementById('menu').style.display = 'flex';
                 return;
             }
-
             frame++;
             requestAnimationFrame(loop);
         }
 
-        // کنترل‌ها
-        document.getElementById('b').onclick = (e) => {
-            e.stopPropagation();
-            reset();
-        };
-
-        const flap = (e) => {
-            if (active) {
-                bird.v = -8;
-            }
+        document.getElementById('b').onclick = (e) => { e.stopPropagation(); reset(); };
+        window.onmousedown = window.ontouchstart = (e) => {
+            if (active) bird.v = -8;
             if (e.type === 'touchstart' && active) e.preventDefault();
         };
-
-        window.onmousedown = flap;
-        window.ontouchstart = flap;
-
     </script>
 </body>
 </html>
