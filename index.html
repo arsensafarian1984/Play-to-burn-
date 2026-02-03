@@ -3,22 +3,19 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TON BURNER - Fast & Wide</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 28px; font-weight: bold; z-index: 10; pointer-events: none; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        h1 { color: #00d4ff; font-size: 36px; }
         button { padding: 15px 60px; font-size: 20px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; }
         canvas { display: block; }
     </style>
 </head>
 <body>
-
     <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
     <div id="menu">
-        <h1 id="t">TON BURNER</h1>
+        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
         <button id="b">START MISSION 🔥</button>
     </div>
 
@@ -29,9 +26,11 @@
         const imgTon = new Image(); imgTon.src = 'logo.png';
         const imgFire = new Image(); imgFire.src = 'fire.png';
 
-        let bird, pipes, score, active = false, frame = 0;
-        let gameSpeed = 3.5; 
-        let pipeGap = 240; // دهانه عریض (همانی که خواستی)
+        let bird, pipes, score, active = false;
+        let gameSpeed = 210; // پیکسل بر ثانیه (بجای فریم)
+        let pipeGap = 240;
+        let lastTime = 0;
+        let spawnTimer = 0;
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -41,58 +40,62 @@
         resize();
 
         function reset() {
-            bird = { x: 60, y: canvas.height / 2, v: 0, g: 0.5 };
-            pipes = []; score = 0; frame = 0; gameSpeed = 3.5;
+            bird = { x: 60, y: canvas.height / 2, v: 0, g: 25 }; // جاذبه تنظیم شده برای ثانیه
+            pipes = []; score = 0; gameSpeed = 210;
+            spawnTimer = 0;
             active = true;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('s').innerText = "0";
-            loop();
+            lastTime = performance.now();
+            loop(performance.now());
         }
 
-        function loop() {
+        function loop(timestamp) {
             if (!active) return;
+
+            // محاسبه اختلاف زمان بین دو فریم (Delta Time)
+            let dt = (timestamp - lastTime) / 1000; 
+            if (dt > 0.1) dt = 0.016; // جلوگیری از پرش ناگهانی در صورت لگ
+            lastTime = timestamp;
 
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // فیزیک بر اساس زمان
             bird.v += bird.g;
-            bird.y += bird.v;
+            bird.y += bird.v * dt * 60; // هماهنگ سازی با سرعت 60 فریم
             ctx.drawImage(imgTon, bird.x - 25, bird.y - 25, 50, 50);
 
-            // --- تغییر اصلی اینجاست: بازگشت به فاصله افقی کم (عدد 100) ---
-            let spawnRate = Math.max(50, 100 - (score * 2)); 
-            if (frame % Math.floor(spawnRate) === 0) {
+            // مدیریت ظهور لوله‌ها بر اساس زمان (هر 1.5 ثانیه یک لوله)
+            spawnTimer += dt;
+            let spawnRate = Math.max(0.8, 1.6 - (score * 0.05)); 
+            if (spawnTimer >= spawnRate) {
                 pipes.push({ 
                     x: canvas.width, 
                     t: Math.random() * (canvas.height - (pipeGap + 200)) + 100, 
                     scored: false 
                 });
+                spawnTimer = 0;
             }
 
             pipes.forEach(p => {
-                p.x -= gameSpeed;
+                p.x -= gameSpeed * dt; // حرکت نرم و یکسان در تمام مرورگرها
                 
-                // رسم شعله بالا
                 ctx.save();
                 ctx.translate(p.x + 30, p.t);
                 ctx.scale(1, -1);
                 ctx.drawImage(imgFire, -30, 0, 60, p.t);
                 ctx.restore();
-
-                // رسم شعله پایین
                 ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
 
-                // تشخیص برخورد
                 if (bird.x + 18 > p.x && bird.x - 18 < p.x + 60) {
-                    if (bird.y - 18 < p.t || bird.y + 18 > p.t + pipeGap) {
-                        active = false;
-                    }
+                    if (bird.y - 18 < p.t || bird.y + 18 > p.t + pipeGap) active = false;
                 }
 
                 if (p.x < bird.x && !p.scored) { 
                     p.scored = true; score++; 
                     document.getElementById('s').innerText = score;
-                    gameSpeed += 0.15;
+                    gameSpeed += 8; // افزایش ملایم سرعت بر اساس زمان
                 }
             });
 
@@ -104,7 +107,6 @@
                 document.getElementById('menu').style.display = 'flex';
                 return;
             }
-            frame++;
             requestAnimationFrame(loop);
         }
 
