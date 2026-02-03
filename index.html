@@ -1,112 +1,66 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 24px; font-weight: bold; z-index: 10; pointer-events: none; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 15px 50px; font-size: 20px; background: #00d4ff; border: none; border-radius: 10px; color: #000; font-weight: bold; cursor: pointer; }
-        canvas { display: block; }
-    </style>
-</head>
-<body>
-    <div id="ui">SCORE: <span id="s">0</span></div>
-    <canvas id="c"></canvas>
-    <div id="menu">
-        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
-        <p id="info">Waiting for images...</p>
-        <button id="b" style="display:none">START GAME</button>
-    </div>
+// ۱. اضافه کردن متغیر سرعت به متغیرهای اصلی
+let bird, pipes, score, active = false, frame = 0;
+let gameSpeed = 3.5; // سرعت اولیه
 
-    <script>
-        const canvas = document.getElementById('c');
-        const ctx = canvas.getContext('2d');
+function reset() {
+    bird = { x: 60, y: canvas.height/2, v: 0, g: 0.5 };
+    pipes = []; 
+    score = 0; 
+    frame = 0; 
+    gameSpeed = 3.5; // ریست کردن سرعت در هر بار شروع مجدد
+    active = true;
+    document.getElementById('menu').style.display = 'none';
+    loop();
+}
+
+function loop() {
+    if(!active) return;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    bird.v += bird.g;
+    bird.y += bird.v;
+    
+    ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
+
+    // ۲. مدیریت فاصله موانع بر اساس سرعت (هرچه سرعت بیشتر، فاصله زمانی کمتر)
+    let spawnRate = Math.max(50, 100 - (score * 2)); 
+    if(frame % Math.floor(spawnRate) === 0) {
+        pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-350)+100, scored: false });
+    }
+
+    pipes.forEach(p => {
+        p.x -= gameSpeed; // ۳. استفاده از متغیر سرعت به جای عدد ثابت
         
-        // فراخوانی عکس‌های محلی
-        const imgTon = new Image();
-        imgTon.src = 'logo.png';
-        const imgFire = new Image();
-        imgFire.src = 'fire.png';
+        // رسم شعله‌ها (مثل قبل)
+        ctx.save();
+        ctx.translate(p.x + 30, p.t);
+        ctx.scale(1, -1);
+        ctx.drawImage(imgFire, -30, 0, 60, p.t);
+        ctx.restore();
+        ctx.drawImage(imgFire, p.x, p.t + 180, 60, canvas.height - (p.t + 180));
 
-        let imagesLoaded = 0;
-        const checkLoad = () => {
-            imagesLoaded++;
-            if(imagesLoaded === 2) {
-                document.getElementById('info').style.display = 'none';
-                document.getElementById('b').style.display = 'block';
-            }
-        };
-        imgTon.onload = checkLoad;
-        imgFire.onload = checkLoad;
-
-        let bird, pipes, score, active = false, frame = 0;
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.onresize = resize;
-        resize();
-
-        function reset() {
-            bird = { x: 60, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = []; score = 0; frame = 0; active = true;
-            document.getElementById('menu').style.display = 'none';
-            loop();
-        }
-
-        function loop() {
-            if(!active) return;
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            bird.v += bird.g;
-            bird.y += bird.v;
+        if(bird.x+20 > p.x && bird.x-20 < p.x+60 && (bird.y-20 < p.t || bird.y+20 > p.t+180)) active = false;
+        
+        if(p.x < 60 && !p.scored) { 
+            p.scored = true; 
+            score++; 
+            document.getElementById('s').innerText = score;
             
-            // رسم لوگوی TON
-            ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
-
-            if(frame % 90 === 0) {
-                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-350)+100 });
-            }
-
-            pipes.forEach(p => {
-                p.x -= 4.5;
-                
-                // رسم شعله آتش بالا (برعکس شده)
-                ctx.save();
-                ctx.translate(p.x + 30, p.t);
-                ctx.scale(1, -1);
-                ctx.drawImage(imgFire, -30, 0, 60, p.t);
-                ctx.restore();
-
-                // رسم شعله آتش پایین
-                ctx.drawImage(imgFire, p.x, p.t + 180, 60, canvas.height - (p.t + 180));
-
-                if(bird.x+20 > p.x && bird.x-20 < p.x+60 && (bird.y-20 < p.t || bird.y+20 > p.t+180)) active = false;
-                if(p.x < 60 && !p.scored) { p.scored = true; score++; document.getElementById('s').innerText = score; }
-            });
-
-            pipes = pipes.filter(p => p.x > -100);
-            if(bird.y > canvas.height || bird.y < 0) active = false;
-
-            if(!active) {
-                document.getElementById('t').innerText = "SCORE: " + score;
-                document.getElementById('menu').style.display = 'flex';
-                return;
-            }
-
-            frame++;
-            requestAnimationFrame(loop);
+            // ۴. افزایش تدریجی سرعت با هر امتیاز
+            gameSpeed += 0.15; 
         }
+    });
 
-        document.getElementById('b').onclick = reset;
-        window.onmousedown = window.ontouchstart = (e) => {
-            if(active) bird.v = -8;
-            if(e.type === 'touchstart') e.preventDefault();
-        };
-    </script>
-</body>
-</html>
+    pipes = pipes.filter(p => p.x > -100);
+    if(bird.y > canvas.height || bird.y < 0) active = false;
+
+    if(!active) {
+        document.getElementById('t').innerText = "SCORE: " + score;
+        document.getElementById('menu').style.display = 'flex';
+        return;
+    }
+
+    frame++;
+    requestAnimationFrame(loop);
+}
