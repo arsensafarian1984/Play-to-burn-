@@ -2,12 +2,12 @@
 <html lang="fa">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; -webkit-user-select: none; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 28px; font-weight: bold; z-index: 10; pointer-events: none; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 15px 60px; font-size: 20px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; }
+        button { padding: 18px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         canvas { display: block; }
     </style>
 </head>
@@ -15,8 +15,9 @@
     <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
     <div id="menu">
-        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
-        <button id="b">START MISSION 🔥</button>
+        <h1 id="t" style="color:#00d4ff; font-size: 32px;">TON BURNER</h1>
+        <p id="loader">در حال بارگذاری عکس‌ها...</p>
+        <button id="b" style="display:none">START MISSION 🔥</button>
     </div>
 
     <script>
@@ -26,8 +27,19 @@
         const imgTon = new Image(); imgTon.src = 'logo.png';
         const imgFire = new Image(); imgFire.src = 'fire.png';
 
+        let imagesLoaded = 0;
+        const onImageLoad = () => {
+            imagesLoaded++;
+            if(imagesLoaded === 2) {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('b').style.display = 'block';
+            }
+        };
+        imgTon.onload = onImageLoad;
+        imgFire.onload = onImageLoad;
+
         let bird, pipes, score, active = false;
-        let gameSpeed = 210; // پیکسل بر ثانیه (بجای فریم)
+        let gameSpeed = 210;
         let pipeGap = 240;
         let lastTime = 0;
         let spawnTimer = 0;
@@ -40,47 +52,38 @@
         resize();
 
         function reset() {
-            bird = { x: 60, y: canvas.height / 2, v: 0, g: 25 }; // جاذبه تنظیم شده برای ثانیه
+            bird = { x: 60, y: canvas.height / 2, v: 0, g: 25 };
             pipes = []; score = 0; gameSpeed = 210;
             spawnTimer = 0;
             active = true;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('s').innerText = "0";
             lastTime = performance.now();
-            loop(performance.now());
+            requestAnimationFrame(loop);
         }
 
         function loop(timestamp) {
             if (!active) return;
-
-            // محاسبه اختلاف زمان بین دو فریم (Delta Time)
             let dt = (timestamp - lastTime) / 1000; 
-            if (dt > 0.1) dt = 0.016; // جلوگیری از پرش ناگهانی در صورت لگ
+            if (dt > 0.1) dt = 0.016;
             lastTime = timestamp;
 
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // فیزیک بر اساس زمان
             bird.v += bird.g;
-            bird.y += bird.v * dt * 60; // هماهنگ سازی با سرعت 60 فریم
+            bird.y += bird.v * dt * 60;
             ctx.drawImage(imgTon, bird.x - 25, bird.y - 25, 50, 50);
 
-            // مدیریت ظهور لوله‌ها بر اساس زمان (هر 1.5 ثانیه یک لوله)
             spawnTimer += dt;
             let spawnRate = Math.max(0.8, 1.6 - (score * 0.05)); 
             if (spawnTimer >= spawnRate) {
-                pipes.push({ 
-                    x: canvas.width, 
-                    t: Math.random() * (canvas.height - (pipeGap + 200)) + 100, 
-                    scored: false 
-                });
+                pipes.push({ x: canvas.width, t: Math.random() * (canvas.height - (pipeGap + 200)) + 100, scored: false });
                 spawnTimer = 0;
             }
 
             pipes.forEach(p => {
-                p.x -= gameSpeed * dt; // حرکت نرم و یکسان در تمام مرورگرها
-                
+                p.x -= gameSpeed * dt;
                 ctx.save();
                 ctx.translate(p.x + 30, p.t);
                 ctx.scale(1, -1);
@@ -95,7 +98,7 @@
                 if (p.x < bird.x && !p.scored) { 
                     p.scored = true; score++; 
                     document.getElementById('s').innerText = score;
-                    gameSpeed += 8; // افزایش ملایم سرعت بر اساس زمان
+                    gameSpeed += 8;
                 }
             });
 
@@ -110,11 +113,27 @@
             requestAnimationFrame(loop);
         }
 
-        document.getElementById('b').onclick = (e) => { e.stopPropagation(); reset(); };
-        window.onmousedown = window.ontouchstart = (e) => {
-            if (active) bird.v = -8;
-            if (e.type === 'touchstart' && active) e.preventDefault();
+        // اصلاح دکمه برای تلگرام
+        const startButton = document.getElementById('b');
+        const handleStart = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!active) reset();
         };
+        
+        startButton.addEventListener('touchstart', handleStart);
+        startButton.addEventListener('click', handleStart);
+
+        // اصلاح کنترل پرش
+        const handleJump = (e) => {
+            if (active) {
+                bird.v = -8;
+                if (e.cancelable) e.preventDefault();
+            }
+        };
+
+        window.addEventListener('touchstart', handleJump, { passive: false });
+        window.addEventListener('mousedown', handleJump);
     </script>
 </body>
 </html>
