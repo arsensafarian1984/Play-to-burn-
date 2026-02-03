@@ -2,12 +2,12 @@
 <html lang="fa">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; -webkit-user-select: none; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 28px; font-weight: bold; z-index: 10; pointer-events: none; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
-        button { padding: 18px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 50px; color: #000; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        button { padding: 15px 50px; font-size: 20px; background: #00d4ff; border: none; border-radius: 10px; color: #000; font-weight: bold; cursor: pointer; }
         canvas { display: block; }
     </style>
 </head>
@@ -15,9 +15,8 @@
     <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
     <div id="menu">
-        <h1 id="t" style="color:#00d4ff; font-size: 32px;">TON BURNER</h1>
-        <p id="loader">در حال بارگذاری عکس‌ها...</p>
-        <button id="b" style="display:none">START MISSION 🔥</button>
+        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
+        <button id="b">START GAME</button>
     </div>
 
     <script>
@@ -27,19 +26,8 @@
         const imgTon = new Image(); imgTon.src = 'logo.png';
         const imgFire = new Image(); imgFire.src = 'fire.png';
 
-        let imagesLoaded = 0;
-        const onImageLoad = () => {
-            imagesLoaded++;
-            if(imagesLoaded === 2) {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('b').style.display = 'block';
-            }
-        };
-        imgTon.onload = onImageLoad;
-        imgFire.onload = onImageLoad;
-
         let bird, pipes, score, active = false;
-        let gameSpeed = 210;
+        let gameSpeed = 210; 
         let pipeGap = 240;
         let lastTime = 0;
         let spawnTimer = 0;
@@ -48,12 +36,14 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
-        window.onresize = resize;
+        window.addEventListener('resize', resize);
         resize();
 
         function reset() {
             bird = { x: 60, y: canvas.height / 2, v: 0, g: 25 };
-            pipes = []; score = 0; gameSpeed = 210;
+            pipes = []; 
+            score = 0; 
+            gameSpeed = 210;
             spawnTimer = 0;
             active = true;
             document.getElementById('menu').style.display = 'none';
@@ -64,17 +54,20 @@
 
         function loop(timestamp) {
             if (!active) return;
+
             let dt = (timestamp - lastTime) / 1000; 
-            if (dt > 0.1) dt = 0.016;
+            if (dt > 0.1) dt = 0.016; 
             lastTime = timestamp;
 
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // فیزیک
             bird.v += bird.g;
             bird.y += bird.v * dt * 60;
             ctx.drawImage(imgTon, bird.x - 25, bird.y - 25, 50, 50);
 
+            // تولید موانع
             spawnTimer += dt;
             let spawnRate = Math.max(0.8, 1.6 - (score * 0.05)); 
             if (spawnTimer >= spawnRate) {
@@ -84,6 +77,8 @@
 
             pipes.forEach(p => {
                 p.x -= gameSpeed * dt;
+                
+                // رسم آتش
                 ctx.save();
                 ctx.translate(p.x + 30, p.t);
                 ctx.scale(1, -1);
@@ -91,10 +86,12 @@
                 ctx.restore();
                 ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
 
+                // برخورد
                 if (bird.x + 18 > p.x && bird.x - 18 < p.x + 60) {
                     if (bird.y - 18 < p.t || bird.y + 18 > p.t + pipeGap) active = false;
                 }
 
+                // امتیاز
                 if (p.x < bird.x && !p.scored) { 
                     p.scored = true; score++; 
                     document.getElementById('s').innerText = score;
@@ -113,27 +110,25 @@
             requestAnimationFrame(loop);
         }
 
-        // اصلاح دکمه برای تلگرام
-        const startButton = document.getElementById('b');
-        const handleStart = (e) => {
-            e.preventDefault();
+        // سیستم کلیک ساده و مستقیم برای دکمه
+        document.getElementById('b').addEventListener('click', function(e) {
             e.stopPropagation();
-            if (!active) reset();
-        };
-        
-        startButton.addEventListener('touchstart', handleStart);
-        startButton.addEventListener('click', handleStart);
+            reset();
+        });
 
-        // اصلاح کنترل پرش
-        const handleJump = (e) => {
+        // سیستم پرش
+        const jumpAction = function(e) {
             if (active) {
                 bird.v = -8;
-                if (e.cancelable) e.preventDefault();
             }
         };
 
-        window.addEventListener('touchstart', handleJump, { passive: false });
-        window.addEventListener('mousedown', handleJump);
+        window.addEventListener('mousedown', jumpAction);
+        window.addEventListener('touchstart', function(e) {
+            jumpAction();
+            if(active) e.preventDefault(); 
+        }, {passive: false});
+
     </script>
 </body>
 </html>
