@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; }
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; }
+        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
         button { padding: 20px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         canvas { display: block; }
@@ -14,7 +14,7 @@
 <body>
     <div id="ui">SCORE: <span id="s">0</span></div>
     <div id="menu">
-        <h1 id="t">TON BURNER</h1>
+        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
         <button id="b">START GAME</button>
     </div>
     <canvas id="c"></canvas>
@@ -30,6 +30,10 @@
         var bird, pipes, score, active = false;
         var gameSpeed = 3.5;
         var pipeGap = 240;
+        
+        // متغیرهای کنترل زمان
+        var lastUpdate = Date.now();
+        var timestep = 1000 / 60; // اجرای دقیق ۶۰ بار در ثانیه
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -46,42 +50,50 @@
             active = true;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('s').innerHTML = "0";
+            lastUpdate = Date.now();
             loop();
         }
 
-        function loop() {
-            if(!active) return;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0,0,canvas.width, canvas.height);
-
-            // پرنده
+        function update() {
             bird.v += bird.g;
             bird.y += bird.v;
             
-            if(imgTon.complete && imgTon.width > 0) {
-                ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
-            } else {
-                ctx.fillStyle = "#00d4ff";
-                ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
-            }
-
-            // لوله‌ها (هر 90 فریم یکبار)
-            if(bird.x % 1 === 0) { // یک شمارشگر ساده
-                 if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 200) {
-                    pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
-                 }
+            if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 250) {
+                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
             }
 
             for(var i=0; i<pipes.length; i++) {
                 var p = pipes[i];
                 p.x -= gameSpeed;
 
+                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) active = false;
+                
+                if(!p.scored && p.x < bird.x) {
+                    p.scored = true;
+                    score++;
+                    document.getElementById('s').innerHTML = score;
+                    gameSpeed += 0.08;
+                }
+            }
+            if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
+            if(bird.y > canvas.height || bird.y < 0) active = false;
+        }
+
+        function draw() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            if(imgTon.complete && imgTon.width > 0) {
+                ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
+            } else {
+                ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
+            }
+
+            for(var i=0; i<pipes.length; i++) {
+                var p = pipes[i];
                 if(imgFire.complete && imgFire.width > 0) {
                     ctx.save();
-                    ctx.translate(p.x + 30, p.t);
-                    ctx.scale(1, -1);
+                    ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
                     ctx.drawImage(imgFire, -30, 0, 60, p.t);
                     ctx.restore();
                     ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
@@ -90,43 +102,33 @@
                     ctx.fillRect(p.x, 0, 60, p.t);
                     ctx.fillRect(p.x, p.t + pipeGap, 60, canvas.height);
                 }
-
-                // برخورد
-                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+15 > p.t+pipeGap)) active = false;
-                
-                // امتیاز
-                if(!p.scored && p.x < bird.x) {
-                    p.scored = true;
-                    score++;
-                    document.getElementById('s').innerHTML = score;
-                    gameSpeed += 0.1;
-                }
-            }
-
-            // حذف لوله‌های قدیمی
-            if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
-
-            if(bird.y > canvas.height || bird.y < 0) active = false;
-
-            if(!active) {
-                document.getElementById('menu').style.display = 'flex';
-                document.getElementById('t').innerHTML = "SCORE: " + score;
-            } else {
-                requestAnimationFrame(loop);
             }
         }
 
-        // رویداد استارت ساده
-        btn.onclick = function(e) {
-            e.preventDefault();
-            reset();
-        };
+        function loop() {
+            if(!active) {
+                document.getElementById('menu').style.display = 'flex';
+                document.getElementById('t').innerHTML = "SCORE: " + score;
+                return;
+            }
 
-        // رویداد پرش
+            var now = Date.now();
+            var delta = now - lastUpdate;
+
+            // این حلقه باعث می‌شود بازی در همه گوشی‌ها با یک سرعت اجرا شود
+            while(delta >= timestep) {
+                update();
+                delta -= timestep;
+                lastUpdate += timestep;
+            }
+
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        btn.onclick = function(e) { e.preventDefault(); reset(); };
         window.onmousedown = function() { if(active) bird.v = -8; };
-        window.ontouchstart = function(e) { 
-            if(active) { bird.v = -8; e.preventDefault(); }
-        };
+        window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
 
     </script>
 </body>
