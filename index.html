@@ -4,41 +4,56 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font-size: 24px; font-weight: bold; z-index: 10; pointer-events: none; }
+        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; }
+        button { padding: 15px 50px; font-size: 20px; background: #00d4ff; border: none; border-radius: 10px; color: #000; font-weight: bold; cursor: pointer; }
         canvas { display: block; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00d4ff; font: bold 24px Arial; pointer-events: none; }
-        #m { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 100; }
-        button { padding: 15px 40px; font-size: 20px; background: #00d4ff; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: <span id="s">0</span></div>
     <canvas id="c"></canvas>
-    <div id="m">
-        <h1 id="t">TON BURNER</h1>
-        <button id="b">START MISSION 🔥</button>
+    <div id="menu">
+        <h1 id="t" style="color:#00d4ff">TON BURNER</h1>
+        <p id="info">Waiting for images...</p>
+        <button id="b" style="display:none">START GAME</button>
     </div>
 
     <script>
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
         
-        // عکس‌های بهینه و کم‌حجم
+        // فراخوانی عکس‌های محلی
         const imgTon = new Image();
-        imgTon.src = 'https://cryptologos.cc/logos/toncoin-ton-logo.png?v=025';
-        
+        imgTon.src = 'logo.png';
         const imgFire = new Image();
-        imgFire.src = 'https://i.imgur.com/6YvMvXp.png'; // یک شعله آتش شفاف و سبک
+        imgFire.src = 'fire.png';
+
+        let imagesLoaded = 0;
+        const checkLoad = () => {
+            imagesLoaded++;
+            if(imagesLoaded === 2) {
+                document.getElementById('info').style.display = 'none';
+                document.getElementById('b').style.display = 'block';
+            }
+        };
+        imgTon.onload = checkLoad;
+        imgFire.onload = checkLoad;
 
         let bird, pipes, score, active = false, frame = 0;
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.onresize = resize; resize();
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
 
         function reset() {
-            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
+            bird = { x: 60, y: canvas.height/2, v: 0, g: 0.5 };
             pipes = []; score = 0; frame = 0; active = true;
-            document.getElementById('m').style.display = 'none';
+            document.getElementById('menu').style.display = 'none';
             loop();
         }
 
@@ -47,38 +62,51 @@
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            bird.v += bird.g; bird.y += bird.v;
+            bird.v += bird.g;
+            bird.y += bird.v;
             
             // رسم لوگوی TON
-            ctx.shadowBlur = 15; ctx.shadowColor = "#00d4ff";
-            ctx.drawImage(imgTon, bird.x-22, bird.y-22, 44, 44);
-            ctx.shadowBlur = 0;
+            ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
 
-            if(frame % 90 === 0) pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-300)+50 });
+            if(frame % 90 === 0) {
+                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-350)+100 });
+            }
 
             pipes.forEach(p => {
-                p.x -= 4;
-                // رسم شعله‌های آتش به جای لوله
+                p.x -= 4.5;
+                
+                // رسم شعله آتش بالا (برعکس شده)
                 ctx.save();
-                ctx.shadowBlur = 20; ctx.shadowColor = "orange";
-                ctx.drawImage(imgFire, p.x, 0, 60, p.t); // آتش بالا
-                ctx.scale(1, -1); // برعکس کردن آتش برای پایین
-                ctx.drawImage(imgFire, p.x, -(canvas.height), 60, canvas.height - (p.t + 170));
+                ctx.translate(p.x + 30, p.t);
+                ctx.scale(1, -1);
+                ctx.drawImage(imgFire, -30, 0, 60, p.t);
                 ctx.restore();
 
-                if(bird.x+18 > p.x && bird.x-18 < p.x+60 && (bird.y-18 < p.t || bird.y+18 > p.t+170)) active = false;
-                if(p.x === 48) { score++; document.getElementById('s').innerText = score; }
+                // رسم شعله آتش پایین
+                ctx.drawImage(imgFire, p.x, p.t + 180, 60, canvas.height - (p.t + 180));
+
+                if(bird.x+20 > p.x && bird.x-20 < p.x+60 && (bird.y-20 < p.t || bird.y+20 > p.t+180)) active = false;
+                if(p.x < 60 && !p.scored) { p.scored = true; score++; document.getElementById('s').innerText = score; }
             });
 
-            pipes = pipes.filter(p => p.x > -70);
+            pipes = pipes.filter(p => p.x > -100);
             if(bird.y > canvas.height || bird.y < 0) active = false;
-            if(!active) { document.getElementById('t').innerText = "SCORE: "+score; document.getElementById('m').style.display = 'flex'; }
-            
-            frame++; requestAnimationFrame(loop);
+
+            if(!active) {
+                document.getElementById('t').innerText = "SCORE: " + score;
+                document.getElementById('menu').style.display = 'flex';
+                return;
+            }
+
+            frame++;
+            requestAnimationFrame(loop);
         }
 
         document.getElementById('b').onclick = reset;
-        window.onmousedown = window.ontouchstart = () => { if(active) bird.v = -8; };
+        window.onmousedown = window.ontouchstart = (e) => {
+            if(active) bird.v = -8;
+            if(e.type === 'touchstart') e.preventDefault();
+        };
     </script>
 </body>
 </html>
