@@ -7,14 +7,13 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-user-select: none; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; -webkit-user-select: none; }
         #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 22px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
         #best { font-size: 14px; color: #fff; display: block; margin-top: 5px; opacity: 0.8; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; backdrop-filter: blur(5px); }
         button { padding: 16px 35px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; margin: 10px; color: #000; transition: transform 0.2s; }
-        button:active { transform: scale(0.95); }
+        button:disabled { background: #444; color: #888; cursor: wait; }
         #ad-btn { background: #ffcc00; display: none; color: #000; }
-        #ad-btn:disabled { background: #555; color: #aaa; cursor: not-allowed; }
         canvas { display: block; }
     </style>
 </head>
@@ -26,7 +25,7 @@
 
     <div id="menu">
         <h1 id="t" style="color:#00d4ff; font-size: 40px; margin-bottom: 20px;">TON BURNER</h1>
-        <button id="start-btn">START MISSION 🔥</button>
+        <button id="start-btn" disabled>LOADING ASSETS...</button>
         <button id="ad-btn">WATCH AD FOR +10 PTS 🎁</button>
     </div>
 
@@ -34,24 +33,35 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.ready();
+        if(tg) { tg.expand(); tg.ready(); }
 
-        // تنظیمات زمان‌بندی (محدودیت‌ها)
-        const sessionStartTime = Date.now();
-        const AD_DELAY = 2 * 60 * 1000; // ۲ دقیقه انتظار در هر بار باز کردن بازی
-        const AD_COOLDOWN = 6 * 60 * 60 * 1000; // ۶ ساعت فاصله بین هر تبلیغ پاداش‌دار
-
-        // جایگذاری آیدی شما: 22364
-        const AdController = window.Adsgram.init({ blockId: "22364" }); 
+        const AdController = window.Adsgram.init({ blockId: "22364" });
 
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('start-btn');
         const adBtn = document.getElementById('ad-btn');
         
-        const imgTon = new Image(); imgTon.src = 'logo.png';
-        const imgFire = new Image(); imgFire.src = 'fire.png';
+        // مدیریت لودینگ تصاویر
+        let loadedImages = 0;
+        const totalImages = 2;
+        function imageLoaded() {
+            loadedImages++;
+            if(loadedImages === totalImages) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = "START MISSION 🔥";
+            }
+        }
+
+        const imgTon = new Image(); 
+        imgTon.src = 'logo.png';
+        imgTon.onload = imageLoaded;
+        imgTon.onerror = () => { startBtn.innerHTML = "ERROR: logo.png MISSING"; };
+
+        const imgFire = new Image(); 
+        imgFire.src = 'fire.png';
+        imgFire.onload = imageLoaded;
+        imgFire.onerror = () => { startBtn.innerHTML = "ERROR: fire.png MISSING"; };
 
         let bird, pipes, score, active = false;
         let gameSpeed = 3.5;
@@ -72,7 +82,7 @@
         function reset(bonus = 0) {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
             pipes = []; 
-            if(bonus === 0) score = 0; else score = bonus; 
+            score = bonus; 
             gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
@@ -92,19 +102,13 @@
             for(let i=0; i<pipes.length; i++) {
                 let p = pipes[i];
                 p.x -= gameSpeed;
-                
-                // برخورد
                 if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) gameOver();
-                
-                // امتیازگیری
                 if(!p.scored && p.x < bird.x) {
                     p.scored = true; score++;
                     document.getElementById('s').innerHTML = score;
                     gameSpeed += 0.07;
-                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
                 }
             }
-
             if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
             if(bird.y > canvas.height || bird.y < 0) gameOver();
         }
@@ -116,52 +120,20 @@
                 localStorage.setItem('ton_highscore', highScore);
                 document.getElementById('hs').innerHTML = highScore;
             }
-            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-
-            checkAdAvailability();
-        }
-
-        function checkAdAvailability() {
-            const timeInGame = Date.now() - sessionStartTime;
-            const lastAdTime = localStorage.getItem('last_ad_time') || 0;
-            const now = Date.now();
-            const cooldownOver = (now - lastAdTime) > AD_COOLDOWN;
-
-            if (timeInGame > AD_DELAY) {
-                adBtn.style.display = 'block';
-                if (cooldownOver) {
-                    adBtn.innerHTML = "WATCH AD FOR +10 PTS 🎁";
-                    adBtn.disabled = false;
-                    adBtn.style.background = "#ffcc00";
-                } else {
-                    const hoursLeft = Math.ceil((AD_COOLDOWN - (now - lastAdTime)) / (1000 * 60 * 60));
-                    adBtn.innerHTML = `NEXT AD IN ~${hoursLeft}h ⏳`;
-                    adBtn.disabled = true;
-                    adBtn.style.background = "#555";
-                }
-            } else {
-                adBtn.style.display = 'none';
-            }
+            adBtn.style.display = 'block';
         }
 
         function draw() {
             ctx.fillStyle = "#000";
             ctx.fillRect(0,0,canvas.width, canvas.height);
             
-            if(imgTon.complete) ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
-            else { ctx.fillStyle = "#00d4ff"; ctx.beginPath(); ctx.arc(bird.x, bird.y, 20, 0, Math.PI*2); ctx.fill(); }
+            ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
 
             for(let i=0; i<pipes.length; i++) {
                 let p = pipes[i];
-                if(imgFire.complete) {
-                    ctx.save(); ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
-                    ctx.drawImage(imgFire, -30, 0, 60, p.t); ctx.restore();
-                    ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
-                } else {
-                    ctx.fillStyle = "orange";
-                    ctx.fillRect(p.x, 0, 60, p.t);
-                    ctx.fillRect(p.x, p.t + pipeGap, 60, canvas.height);
-                }
+                ctx.save(); ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
+                ctx.drawImage(imgFire, -30, 0, 60, p.t); ctx.restore();
+                ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
             }
         }
 
@@ -173,6 +145,7 @@
             }
             let now = Date.now();
             let delta = now - lastUpdate;
+            if (delta > 1000) delta = timestep; 
             while(delta >= timestep) { update(); delta -= timestep; lastUpdate += timestep; }
             draw();
             requestAnimationFrame(loop);
@@ -181,22 +154,20 @@
         startBtn.onclick = () => reset(0);
 
         adBtn.onclick = () => {
-            // نمایش تبلیغ با Block ID جدید شما
             AdController.show().then(() => {
-                localStorage.setItem('last_ad_time', Date.now());
-                alert("Reward Unlocked! Starting with 10 Points.");
+                alert("Success! +10 Points added.");
                 reset(10); 
-            }).catch((err) => {
-                console.log("Ad skipped or error:", err);
-                alert("Ad not completed. No reward given.");
+            }).catch(() => {
+                alert("Ad not finished.");
                 reset(0);
             });
         };
 
         const jump = (e) => { if(active) { bird.v = -8; if(e) e.preventDefault(); } };
-        window.onmousedown = jump;
-        window.ontouchstart = jump;
+        window.addEventListener('mousedown', jump);
+        window.addEventListener('touchstart', jump, {passive: false});
 
+        loop();
     </script>
 </body>
 </html>
