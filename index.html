@@ -1,41 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; -webkit-user-select: none; }
-        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
-        #best { font-size: 14px; color: #fff; display: block; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
-        button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; z-index: 1000; }
-        #ad-btn { background: #ffcc00; color: #000; display: none; }
-        #ad-btn:disabled { background: #444; color: #888; cursor: not-allowed; box-shadow: none; }
-        canvas { display: block; }
-    </style>
-</head>
-<body>
-    <div id="ui">
-        SCORE: <span id="s">0</span>
-        <span id="best">BEST: <span id="hs">0</span></span>
-    </div>
-    <div id="menu">
-        <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
-        <button id="b">START MISSION 🔥</button>
-        <button id="ad-btn">GET +10 PTS BONUS 🎁</button>
-    </div>
-    <canvas id="c"></canvas>
-
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
 
-        const sessionStartTime = Date.now();
-        // استفاده از آیدی تست برای اطمینان از کارکرد
-        const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "22364" }) : null;
+        // تعریف اولیه برای جلوگیری از ارور
+        let AdController = null;
+        try {
+            if (window.Adsgram) {
+                // آیدی اصلی خودت را اینجا بگذار
+                AdController = window.Adsgram.init({ blockId: "22364" });
+            }
+        } catch(e) { console.log("Adsgram init error"); }
 
         var canvas = document.getElementById('c');
         var ctx = canvas.getContext('2d');
@@ -66,22 +41,19 @@
             const now = Date.now();
             const lastAdTime = parseInt(localStorage.getItem('last_ad_timestamp') || 0);
             const fourHours = 4 * 60 * 60 * 1000;
-            const twoMinutes = 2 * 60 * 1000;
 
-            if (now - sessionStartTime >= twoMinutes) {
-                adBtn.style.display = 'block';
-                if (now - lastAdTime > fourHours) {
-                    adBtn.disabled = false;
-                    adBtn.innerHTML = "GET +10 PTS BONUS 🎁";
-                } else {
-                    adBtn.disabled = true;
-                    const diff = fourHours - (now - lastAdTime);
-                    const h = Math.floor(diff / (1000 * 60 * 60));
-                    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                    adBtn.innerHTML = "WAIT " + h + "h " + m + "m";
-                }
+            // برای تایید مدیریت، دکمه را همیشه در منو نشان بده
+            adBtn.style.display = 'block';
+
+            if (now - lastAdTime > fourHours) {
+                adBtn.disabled = false;
+                adBtn.innerHTML = "GET +10 PTS BONUS 🎁";
             } else {
-                adBtn.style.display = 'none';
+                adBtn.disabled = true;
+                const diff = fourHours - (now - lastAdTime);
+                const h = Math.floor(diff / (1000 * 60 * 60));
+                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                adBtn.innerHTML = "WAIT " + h + "h " + m + "m";
             }
         }
 
@@ -163,40 +135,45 @@
             requestAnimationFrame(loop);
         }
 
-        btn.onclick = function(e) { 
-            e.preventDefault(); 
-            reset(); 
-        };
-
-        adBtn.onclick = function(e) {
+        // اصلاح کلیک دکمه استارت (بدون تداخل)
+        btn.addEventListener('click', function(e) {
             e.preventDefault();
-            e.stopPropagation(); // جلوگیری از تداخل
+            e.stopPropagation();
+            reset();
+        });
+
+        // اصلاح کلیک دکمه تبلیغ
+        adBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             if (!AdController) {
-                alert("Ads not ready");
+                alert("Adsgram not loaded yet");
                 return;
             }
-
             AdController.show().then(() => {
                 localStorage.setItem('last_ad_timestamp', Date.now().toString());
                 pendingBonus = 10;
-                alert("Bonus Unlocked! Start game for +10 pts.");
+                alert("Bonus Unlocked! Press START.");
                 checkAdEligibility();
-            }).catch(() => {
-                alert("Ad not shown.");
+            }).catch((err) => {
+                alert("Ads not ready yet. Please try again or wait for approval.");
             });
-        };
+        });
 
-        const jump = () => { if(active) bird.v = -8; };
-        window.addEventListener('mousedown', jump);
-        window.addEventListener('touchstart', (e) => { 
-            if(active && e.target.tagName !== 'BUTTON') {
-                jump(); 
-                e.preventDefault();
+        // مدیریت ورودی برای پرش
+        const jump = (e) => {
+            if (active && e.target.tagName !== 'BUTTON') {
+                bird.v = -8;
             }
-        }, {passive: false});
+        };
+        window.addEventListener('mousedown', jump);
+        window.addEventListener('touchstart', function(e) {
+            if (active && e.target.tagName !== 'BUTTON') {
+                jump(e);
+                if (e.cancelable) e.preventDefault();
+            }
+        }, { passive: false });
 
-        // منوی اولیه
-        document.getElementById('menu').style.display = 'flex';
+        // مقداردهی اولیه منو
+        checkAdEligibility();
     </script>
-</body>
-</html>
