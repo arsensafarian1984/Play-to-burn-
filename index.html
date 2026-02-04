@@ -10,9 +10,9 @@
         #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
         #best { font-size: 14px; color: #fff; display: block; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
-        button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; }
+        button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; z-index: 1000; }
         #ad-btn { background: #ffcc00; color: #000; display: none; }
-        #ad-btn:disabled { background: #444; color: #888; box-shadow: none; cursor: not-allowed; }
+        #ad-btn:disabled { background: #444; color: #888; cursor: not-allowed; box-shadow: none; }
         canvas { display: block; }
     </style>
 </head>
@@ -34,6 +34,7 @@
         tg.ready();
 
         const sessionStartTime = Date.now();
+        // استفاده از آیدی تست برای اطمینان از کارکرد
         const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "int-4641" }) : null;
 
         var canvas = document.getElementById('c');
@@ -45,7 +46,7 @@
         var imgFire = new Image(); imgFire.src = 'fire.png';
 
         var bird, pipes, score = 0, active = false;
-        var pendingBonus = 0; // پاداش ذخیره شده
+        var pendingBonus = 0;
         var gameSpeed = 3.5;
         var pipeGap = 240;
         var lastUpdate = Date.now();
@@ -87,8 +88,8 @@
         function reset() {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
             pipes = []; 
-            score = pendingBonus; // استفاده از پاداش ذخیره شده
-            pendingBonus = 0; // ریست کردن پاداش برای دفعه بعد
+            score = pendingBonus;
+            pendingBonus = 0;
             gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
@@ -162,26 +163,40 @@
             requestAnimationFrame(loop);
         }
 
-        btn.onclick = function(e) { e.preventDefault(); reset(); };
+        btn.onclick = function(e) { 
+            e.preventDefault(); 
+            reset(); 
+        };
 
         adBtn.onclick = function(e) {
             e.preventDefault();
-            if (!AdController) return;
+            e.stopPropagation(); // جلوگیری از تداخل
+            if (!AdController) {
+                alert("Ads not ready");
+                return;
+            }
 
             AdController.show().then(() => {
                 localStorage.setItem('last_ad_timestamp', Date.now().toString());
-                pendingBonus = 10; // امتیاز را رزرو کن
-                alert("Bonus Unlocked! Start the game to use your +10 points.");
-                checkAdEligibility(); // بلافاصله دکمه را غیرفعال کن
+                pendingBonus = 10;
+                alert("Bonus Unlocked! Start game for +10 pts.");
+                checkAdEligibility();
             }).catch(() => {
-                alert("Ad not finished.");
+                alert("Ad not shown.");
             });
         };
 
-        window.onmousedown = function() { if(active) bird.v = -8; };
-        window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
+        const jump = () => { if(active) bird.v = -8; };
+        window.addEventListener('mousedown', jump);
+        window.addEventListener('touchstart', (e) => { 
+            if(active && e.target.tagName !== 'BUTTON') {
+                jump(); 
+                e.preventDefault();
+            }
+        }, {passive: false});
 
-        checkAdEligibility();
+        // منوی اولیه
+        document.getElementById('menu').style.display = 'flex';
     </script>
 </body>
 </html>
