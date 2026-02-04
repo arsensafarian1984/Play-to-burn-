@@ -1,19 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Ton Burner Game</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-user-select: none; }
-        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 22px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
-        #best { font-size: 14px; color: #fff; display: block; margin-top: 5px; opacity: 0.8; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; backdrop-filter: blur(5px); }
-        button { padding: 16px 35px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; margin: 10px; color: #000; transition: transform 0.2s; }
-        button:active { transform: scale(0.95); }
-        #ad-btn { background: #ffcc00; display: none; color: #000; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; -webkit-user-select: none; }
+        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
+        #best { font-size: 14px; color: #fff; display: block; }
+        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
+        button { padding: 20px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.5); }
         canvas { display: block; }
     </style>
 </head>
@@ -22,41 +18,33 @@
         SCORE: <span id="s">0</span>
         <span id="best">BEST: <span id="hs">0</span></span>
     </div>
-
     <div id="menu">
-        <h1 id="t" style="color:#00d4ff; font-size: 40px; margin-bottom: 20px;">TON BURNER</h1>
-        <button id="start-btn">START MISSION 🔥</button>
-        <button id="ad-btn">WATCH AD FOR +10 PTS 🎁</button>
+        <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
+        <button id="b">START MISSION 🔥</button>
     </div>
-
     <canvas id="c"></canvas>
 
     <script>
+        // آماده‌سازی محیط تلگرام
         const tg = window.Telegram.WebApp;
-        tg.expand();
+        tg.expand(); // باز کردن بازی به صورت تمام صفحه در تلگرام
         tg.ready();
 
-        // تعریف AdController به صورت امن
-        let AdController = null;
-        if (window.Adsgram) {
-            AdController = window.Adsgram.init({ blockId: "22364" });
-        }
-
-        const canvas = document.getElementById('c');
-        const ctx = canvas.getContext('2d');
-        const startBtn = document.getElementById('start-btn');
-        const adBtn = document.getElementById('ad-btn');
+        var canvas = document.getElementById('c');
+        var ctx = canvas.getContext('2d');
+        var btn = document.getElementById('b');
         
-        const imgTon = new Image(); imgTon.src = 'logo.png';
-        const imgFire = new Image(); imgFire.src = 'fire.png';
+        var imgTon = new Image(); imgTon.src = 'logo.png';
+        var imgFire = new Image(); imgFire.src = 'fire.png';
 
-        let bird, pipes, score, active = false;
-        let gameSpeed = 3.5;
-        let pipeGap = 250;
-        let lastUpdate = Date.now();
-        const timestep = 1000 / 60;
+        var bird, pipes, score, active = false;
+        var gameSpeed = 3.5;
+        var pipeGap = 240;
+        var lastUpdate = Date.now();
+        var timestep = 1000 / 60;
 
-        let highScore = localStorage.getItem('ton_highscore') || 0;
+        // بارگذاری بالاترین امتیاز از حافظه گوشی
+        var highScore = localStorage.getItem('ton_highscore') || 0;
         document.getElementById('hs').innerHTML = highScore;
 
         function resize() {
@@ -66,14 +54,12 @@
         window.onresize = resize;
         resize();
 
-        function reset(bonus = 0) {
+        function reset() {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = []; 
-            score = bonus; 
-            gameSpeed = 3.5;
+            pipes = []; score = 0; gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
-            document.getElementById('s').innerHTML = score;
+            document.getElementById('s').innerHTML = "0";
             lastUpdate = Date.now();
             loop();
         }
@@ -81,19 +67,27 @@
         function update() {
             bird.v += bird.g;
             bird.y += bird.v;
-
+            
             if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 250) {
                 pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
             }
 
-            for(let i=0; i<pipes.length; i++) {
-                let p = pipes[i];
+            for(var i=0; i<pipes.length; i++) {
+                var p = pipes[i];
                 p.x -= gameSpeed;
-                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) gameOver();
+
+                // برخورد
+                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) {
+                    gameOver();
+                }
+                
                 if(!p.scored && p.x < bird.x) {
-                    p.scored = true; score++;
+                    p.scored = true;
+                    score++;
                     document.getElementById('s').innerHTML = score;
-                    gameSpeed += 0.07;
+                    gameSpeed += 0.08;
+                    // لرزش ظریف هنگام امتیاز گرفتن در تلگرام
+                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
                 }
             }
             if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
@@ -107,25 +101,27 @@
                 localStorage.setItem('ton_highscore', highScore);
                 document.getElementById('hs').innerHTML = highScore;
             }
-            adBtn.style.display = 'block';
+            // لرزش شدید هنگام باخت
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
         }
 
         function draw() {
             ctx.fillStyle = "#000";
             ctx.fillRect(0,0,canvas.width, canvas.height);
-            
-            if(imgTon.complete && imgTon.naturalWidth !== 0) {
+
+            if(imgTon.complete && imgTon.width > 0) {
                 ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
             } else {
-                ctx.fillStyle = "#00d4ff";
-                ctx.beginPath(); ctx.arc(bird.x, bird.y, 20, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
             }
 
-            for(let i=0; i<pipes.length; i++) {
-                let p = pipes[i];
-                if(imgFire.complete && imgFire.naturalWidth !== 0) {
-                    ctx.save(); ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
-                    ctx.drawImage(imgFire, -30, 0, 60, p.t); ctx.restore();
+            for(var i=0; i<pipes.length; i++) {
+                var p = pipes[i];
+                if(imgFire.complete && imgFire.width > 0) {
+                    ctx.save();
+                    ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
+                    ctx.drawImage(imgFire, -30, 0, 60, p.t);
+                    ctx.restore();
                     ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
                 } else {
                     ctx.fillStyle = "orange";
@@ -141,32 +137,21 @@
                 document.getElementById('t').innerHTML = "SCORE: " + score;
                 return;
             }
-            let now = Date.now();
-            let delta = now - lastUpdate;
-            while(delta >= timestep) { update(); delta -= timestep; lastUpdate += timestep; }
+            var now = Date.now();
+            var delta = now - lastUpdate;
+            while(delta >= timestep) {
+                update();
+                delta -= timestep;
+                lastUpdate += timestep;
+            }
             draw();
             requestAnimationFrame(loop);
         }
 
-        startBtn.onclick = () => reset(0);
+        btn.onclick = function(e) { e.preventDefault(); reset(); };
+        window.onmousedown = function() { if(active) bird.v = -8; };
+        window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
 
-        adBtn.onclick = () => {
-            if (AdController) {
-                AdController.show().then(() => {
-                    reset(10); 
-                }).catch(() => {
-                    reset(0);
-                });
-            } else {
-                reset(0);
-            }
-        };
-
-        const jump = (e) => { if(active) { bird.v = -8; if(e) e.preventDefault(); } };
-        window.onmousedown = jump;
-        window.ontouchstart = jump;
-
-        loop();
     </script>
 </body>
 </html>
