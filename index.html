@@ -4,12 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; -webkit-user-select: none; }
         #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
         #best { font-size: 14px; color: #fff; display: block; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
-        button { padding: 20px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.5); }
+        button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; }
+        #ad-btn { background: #ffcc00; color: #000; display: none; }
+        #ad-btn:disabled { background: #555; color: #888; box-shadow: none; }
         canvas { display: block; }
     </style>
 </head>
@@ -21,18 +24,22 @@
     <div id="menu">
         <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
         <button id="b">START MISSION 🔥</button>
+        <button id="ad-btn">BONUS +10 PTS 🎁</button>
     </div>
     <canvas id="c"></canvas>
 
     <script>
-        // آماده‌سازی محیط تلگرام
         const tg = window.Telegram.WebApp;
-        tg.expand(); // باز کردن بازی به صورت تمام صفحه در تلگرام
+        tg.expand();
         tg.ready();
+
+        // مقداردهی تبلیغات
+        const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "22364" }) : null;
 
         var canvas = document.getElementById('c');
         var ctx = canvas.getContext('2d');
         var btn = document.getElementById('b');
+        var adBtn = document.getElementById('ad-btn');
         
         var imgTon = new Image(); imgTon.src = 'logo.png';
         var imgFire = new Image(); imgFire.src = 'fire.png';
@@ -43,7 +50,6 @@
         var lastUpdate = Date.now();
         var timestep = 1000 / 60;
 
-        // بارگذاری بالاترین امتیاز از حافظه گوشی
         var highScore = localStorage.getItem('ton_highscore') || 0;
         document.getElementById('hs').innerHTML = highScore;
 
@@ -54,12 +60,30 @@
         window.onresize = resize;
         resize();
 
-        function reset() {
+        // بررسی محدودیت ۴ ساعت
+        function checkAdCooldown() {
+            const lastAdTime = localStorage.getItem('last_ad_timestamp') || 0;
+            const now = Date.now();
+            const fourHours = 4 * 60 * 60 * 1000;
+
+            if (now - lastAdTime > fourHours) {
+                adBtn.disabled = false;
+                adBtn.innerHTML = "BONUS +10 PTS 🎁";
+            } else {
+                adBtn.disabled = true;
+                const remainingMin = Math.ceil((fourHours - (now - lastAdTime)) / (1000 * 60));
+                adBtn.innerHTML = "WAIT " + Math.floor(remainingMin/60) + "h " + (remainingMin%60) + "m";
+            }
+        }
+
+        function reset(bonusScore = 0) {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = []; score = 0; gameSpeed = 3.5;
+            pipes = []; 
+            score = bonusScore; 
+            gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
-            document.getElementById('s').innerHTML = "0";
+            document.getElementById('s').innerHTML = score;
             lastUpdate = Date.now();
             loop();
         }
@@ -75,18 +99,11 @@
             for(var i=0; i<pipes.length; i++) {
                 var p = pipes[i];
                 p.x -= gameSpeed;
-
-                // برخورد
-                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) {
-                    gameOver();
-                }
-                
+                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) gameOver();
                 if(!p.scored && p.x < bird.x) {
-                    p.scored = true;
-                    score++;
+                    p.scored = true; score++;
                     document.getElementById('s').innerHTML = score;
                     gameSpeed += 0.08;
-                    // لرزش ظریف هنگام امتیاز گرفتن در تلگرام
                     if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
                 }
             }
@@ -101,20 +118,21 @@
                 localStorage.setItem('ton_highscore', highScore);
                 document.getElementById('hs').innerHTML = highScore;
             }
-            // لرزش شدید هنگام باخت
             if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            
+            // نمایش دکمه تبلیغ در منوی باخت
+            adBtn.style.display = 'block';
+            checkAdCooldown();
         }
 
         function draw() {
             ctx.fillStyle = "#000";
             ctx.fillRect(0,0,canvas.width, canvas.height);
-
             if(imgTon.complete && imgTon.width > 0) {
                 ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
             } else {
                 ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
             }
-
             for(var i=0; i<pipes.length; i++) {
                 var p = pipes[i];
                 if(imgFire.complete && imgFire.width > 0) {
@@ -139,16 +157,26 @@
             }
             var now = Date.now();
             var delta = now - lastUpdate;
-            while(delta >= timestep) {
-                update();
-                delta -= timestep;
-                lastUpdate += timestep;
-            }
+            while(delta >= timestep) { update(); delta -= timestep; lastUpdate += timestep; }
             draw();
             requestAnimationFrame(loop);
         }
 
-        btn.onclick = function(e) { e.preventDefault(); reset(); };
+        btn.onclick = function(e) { e.preventDefault(); reset(0); };
+
+        // عملکرد دکمه تبلیغ
+        adBtn.onclick = function(e) {
+            e.preventDefault();
+            if (!AdController) return reset(0);
+
+            AdController.show().then(() => {
+                localStorage.setItem('last_ad_timestamp', Date.now());
+                reset(10); // شروع بازی با ۱۰ امتیاز
+            }).catch(() => {
+                reset(0);
+            });
+        };
+
         window.onmousedown = function() { if(active) bird.v = -8; };
         window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
 
