@@ -11,7 +11,7 @@
         #best { font-size: 14px; color: #fff; display: block; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
         button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; }
-        #ad-btn { background: #ffcc00; color: #000; display: none; }
+        #ad-btn { background: #ffcc00; color: #000; display: none; } /* در ابتدا مخفی است */
         #ad-btn:disabled { background: #555; color: #888; box-shadow: none; }
         canvas { display: block; }
     </style>
@@ -33,7 +33,9 @@
         tg.expand();
         tg.ready();
 
-        // مقداردهی تبلیغات
+        // زمان ورود کاربر به بازی برای شرط ۲ دقیقه
+        const sessionStartTime = Date.now();
+
         const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "22364" }) : null;
 
         var canvas = document.getElementById('c');
@@ -60,19 +62,27 @@
         window.onresize = resize;
         resize();
 
-        // بررسی محدودیت ۴ ساعت
-        function checkAdCooldown() {
-            const lastAdTime = localStorage.getItem('last_ad_timestamp') || 0;
+        function checkAdEligibility() {
             const now = Date.now();
+            const lastAdTime = localStorage.getItem('last_ad_timestamp') || 0;
             const fourHours = 4 * 60 * 60 * 1000;
+            const twoMinutes = 2 * 60 * 1000;
 
-            if (now - lastAdTime > fourHours) {
-                adBtn.disabled = false;
-                adBtn.innerHTML = "BONUS +10 PTS 🎁";
+            // ۱. بررسی اینکه آیا ۲ دقیقه از باز کردن ربات گذشته است؟
+            if (now - sessionStartTime >= twoMinutes) {
+                adBtn.style.display = 'block'; // نمایش دکمه
+
+                // ۲. بررسی اینکه آیا ۴ ساعت از آخرین پاداش گذشته است؟
+                if (now - lastAdTime > fourHours) {
+                    adBtn.disabled = false;
+                    adBtn.innerHTML = "BONUS +10 PTS 🎁";
+                } else {
+                    adBtn.disabled = true;
+                    const remainingMin = Math.ceil((fourHours - (now - lastAdTime)) / (1000 * 60));
+                    adBtn.innerHTML = "WAIT " + Math.floor(remainingMin/60) + "h " + (remainingMin%60) + "m";
+                }
             } else {
-                adBtn.disabled = true;
-                const remainingMin = Math.ceil((fourHours - (now - lastAdTime)) / (1000 * 60));
-                adBtn.innerHTML = "WAIT " + Math.floor(remainingMin/60) + "h " + (remainingMin%60) + "m";
+                adBtn.style.display = 'none'; // هنوز ۲ دقیقه نشده
             }
         }
 
@@ -91,11 +101,9 @@
         function update() {
             bird.v += bird.g;
             bird.y += bird.v;
-            
             if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 250) {
                 pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
             }
-
             for(var i=0; i<pipes.length; i++) {
                 var p = pipes[i];
                 p.x -= gameSpeed;
@@ -104,7 +112,6 @@
                     p.scored = true; score++;
                     document.getElementById('s').innerHTML = score;
                     gameSpeed += 0.08;
-                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
                 }
             }
             if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
@@ -120,9 +127,10 @@
             }
             if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
             
-            // نمایش دکمه تبلیغ در منوی باخت
-            adBtn.style.display = 'block';
-            checkAdCooldown();
+            // نمایش منو و چک کردن شرایط دکمه تبلیغ
+            document.getElementById('menu').style.display = 'flex';
+            document.getElementById('t').innerHTML = "SCORE: " + score;
+            checkAdEligibility();
         }
 
         function draw() {
@@ -150,11 +158,7 @@
         }
 
         function loop() {
-            if(!active) {
-                document.getElementById('menu').style.display = 'flex';
-                document.getElementById('t').innerHTML = "SCORE: " + score;
-                return;
-            }
+            if(!active) return;
             var now = Date.now();
             var delta = now - lastUpdate;
             while(delta >= timestep) { update(); delta -= timestep; lastUpdate += timestep; }
@@ -164,14 +168,12 @@
 
         btn.onclick = function(e) { e.preventDefault(); reset(0); };
 
-        // عملکرد دکمه تبلیغ
         adBtn.onclick = function(e) {
             e.preventDefault();
             if (!AdController) return reset(0);
-
             AdController.show().then(() => {
                 localStorage.setItem('last_ad_timestamp', Date.now());
-                reset(10); // شروع بازی با ۱۰ امتیاز
+                reset(10); 
             }).catch(() => {
                 reset(0);
             });
@@ -180,6 +182,8 @@
         window.onmousedown = function() { if(active) bird.v = -8; };
         window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
 
+        // اجرای اولیه برای نمایش منو
+        checkAdEligibility();
     </script>
 </body>
 </html>
