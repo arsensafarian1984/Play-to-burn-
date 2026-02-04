@@ -4,182 +4,154 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; -webkit-user-select: none; }
-        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; }
+        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
+        #best { font-size: 14px; color: #fff; display: block; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
-        /* دکمه‌ها را بزرگتر و قابل لمس‌تر کردیم */
-        .game-button { padding: 20px 50px; font-size: 20px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; margin: 15px; pointer-events: auto; }
-        #b-start { background: #00d4ff; color: #000; }
-        #ad-btn { background: #ffcc00; color: #000; display: none; }
+        button { padding: 20px 60px; font-size: 22px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.5); }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="s">0</span> | BEST: <span id="hs">0</span></div>
-    
-    <div id="menu">
-        <h1 id="t" style="color:#00d4ff; font-size: 32px;">TON BURNER</h1>
-        <button id="b-start" class="game-button">START MISSION 🔥</button>
-        <button id="ad-btn" class="game-button">GET +10 PTS BONUS 🎁</button>
+    <div id="ui">
+        SCORE: <span id="s">0</span>
+        <span id="best">BEST: <span id="hs">0</span></span>
     </div>
-
+    <div id="menu">
+        <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
+        <button id="b">START MISSION 🔥</button>
+    </div>
     <canvas id="c"></canvas>
 
     <script>
-        // ۱. مقداردهی اولیه سیستم تلگرام
+        // آماده‌سازی محیط تلگرام
         const tg = window.Telegram.WebApp;
-        tg.expand();
+        tg.expand(); // باز کردن بازی به صورت تمام صفحه در تلگرام
         tg.ready();
 
-        // ۲. متغیرهای گرافیکی و اشیاء
-        const canvas = document.getElementById('c');
-        const ctx = canvas.getContext('2d');
-        const menuLayer = document.getElementById('menu');
-        const startBtn = document.getElementById('b-start');
-        const rewardBtn = document.getElementById('ad-btn');
+        var canvas = document.getElementById('c');
+        var ctx = canvas.getContext('2d');
+        var btn = document.getElementById('b');
         
-        let imgTon = new Image(); imgTon.src = 'logo.png';
-        let imgFire = new Image(); imgFire.src = 'fire.png';
+        var imgTon = new Image(); imgTon.src = 'logo.png';
+        var imgFire = new Image(); imgFire.src = 'fire.png';
 
-        let bird, pipes, score = 0, active = false, pendingBonus = 0;
-        let lastUpdate = Date.now();
-        const timestep = 1000 / 60;
+        var bird, pipes, score, active = false;
+        var gameSpeed = 3.5;
+        var pipeGap = 240;
+        var lastUpdate = Date.now();
+        var timestep = 1000 / 60;
 
-        // ۳. Adsgram
-        let AdController = null;
-        if (window.Adsgram) {
-            AdController = window.Adsgram.init({ blockId: "22364" });
+        // بارگذاری بالاترین امتیاز از حافظه گوشی
+        var highScore = localStorage.getItem('ton_highscore') || 0;
+        document.getElementById('hs').innerHTML = highScore;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         }
+        window.onresize = resize;
+        resize();
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.onresize = resize; resize();
-
-        // ۴. منطق بررسی تبلیغ (کاملاً ایزوله)
-        function refreshAdStatus() {
-            const lastTime = parseInt(localStorage.getItem('last_ad_timestamp') || 0);
-            const now = Date.now();
-            rewardBtn.style.display = 'block';
-            
-            if (now - lastTime > 4 * 3600000) {
-                rewardBtn.disabled = false;
-                rewardBtn.innerText = "GET +10 PTS BONUS 🎁";
-                rewardBtn.style.opacity = "1";
-            } else {
-                rewardBtn.disabled = true;
-                rewardBtn.innerText = "LOCKED (4H)";
-                rewardBtn.style.opacity = "0.5";
-            }
-        }
-
-        // ۵. توابع اصلی بازی
-        function resetGame() {
+        function reset() {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = [];
-            score = pendingBonus;
-            pendingBonus = 0;
+            pipes = []; score = 0; gameSpeed = 3.5;
             active = true;
-            menuLayer.style.display = 'none'; // مخفی کردن منو
-            document.getElementById('s').innerText = score;
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('s').innerHTML = "0";
             lastUpdate = Date.now();
             loop();
         }
 
-        function triggerGameOver() {
-            active = false;
-            const best = localStorage.getItem('ton_highscore') || 0;
-            if(score > best) localStorage.setItem('ton_highscore', score);
-            document.getElementById('hs').innerText = localStorage.getItem('ton_highscore');
-            
-            menuLayer.style.display = 'flex'; // نمایش منو
-            document.getElementById('t').innerText = "SCORE: " + score;
-            refreshAdStatus();
-        }
-
-        // ۶. رسم و آپدیت (بدون تغییر در رویدادها)
         function update() {
-            bird.v += bird.g; bird.y += bird.v;
+            bird.v += bird.g;
+            bird.y += bird.v;
+            
             if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 250) {
                 pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
             }
-            pipes.forEach(p => {
-                p.x -= 3.5;
-                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+240)) triggerGameOver();
-                if(!p.scored && p.x < bird.x) { p.scored = true; score++; document.getElementById('s').innerText = score; }
-            });
-            pipes = pipes.filter(p => p.x > -100);
-            if(bird.y > canvas.height || bird.y < 0) triggerGameOver();
+
+            for(var i=0; i<pipes.length; i++) {
+                var p = pipes[i];
+                p.x -= gameSpeed;
+
+                // برخورد
+                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) {
+                    gameOver();
+                }
+                
+                if(!p.scored && p.x < bird.x) {
+                    p.scored = true;
+                    score++;
+                    document.getElementById('s').innerHTML = score;
+                    gameSpeed += 0.08;
+                    // لرزش ظریف هنگام امتیاز گرفتن در تلگرام
+                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                }
+            }
+            if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
+            if(bird.y > canvas.height || bird.y < 0) gameOver();
+        }
+
+        function gameOver() {
+            active = false;
+            if(score > highScore) {
+                highScore = score;
+                localStorage.setItem('ton_highscore', highScore);
+                document.getElementById('hs').innerHTML = highScore;
+            }
+            // لرزش شدید هنگام باخت
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
         }
 
         function draw() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
-            if(imgTon.complete) ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
-            else { ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-20, bird.y-20, 40, 40); }
-            
-            pipes.forEach(p => {
-                ctx.fillStyle = "orange";
-                if(imgFire.complete) {
-                    ctx.drawImage(imgFire, p.x, 0, 60, p.t);
-                    ctx.drawImage(imgFire, p.x, p.t+240, 60, canvas.height);
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            if(imgTon.complete && imgTon.width > 0) {
+                ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
+            } else {
+                ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
+            }
+
+            for(var i=0; i<pipes.length; i++) {
+                var p = pipes[i];
+                if(imgFire.complete && imgFire.width > 0) {
+                    ctx.save();
+                    ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
+                    ctx.drawImage(imgFire, -30, 0, 60, p.t);
+                    ctx.restore();
+                    ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
                 } else {
-                    ctx.fillRect(p.x, 0, 60, p.t); ctx.fillRect(p.x, p.t+240, 60, canvas.height);
+                    ctx.fillStyle = "orange";
+                    ctx.fillRect(p.x, 0, 60, p.t);
+                    ctx.fillRect(p.x, p.t + pipeGap, 60, canvas.height);
                 }
-            });
+            }
         }
 
         function loop() {
-            if(!active) return;
-            let now = Date.now();
-            let delta = now - lastUpdate;
-            while(delta >= timestep) { update(); delta -= timestep; lastUpdate += timestep; }
-            draw(); requestAnimationFrame(loop);
+            if(!active) {
+                document.getElementById('menu').style.display = 'flex';
+                document.getElementById('t').innerHTML = "SCORE: " + score;
+                return;
+            }
+            var now = Date.now();
+            var delta = now - lastUpdate;
+            while(delta >= timestep) {
+                update();
+                delta -= timestep;
+                lastUpdate += timestep;
+            }
+            draw();
+            requestAnimationFrame(loop);
         }
 
-        // ۷. تفکیک کامل رویدادها (جلوگیری از تداخل) -------------------
+        btn.onclick = function(e) { e.preventDefault(); reset(); };
+        window.onmousedown = function() { if(active) bird.v = -8; };
+        window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
 
-        // الف) رویداد دکمه شروع (فقط کلیک)
-        startBtn.addEventListener('click', function(event) {
-            event.preventDefault();
-            event.stopPropagation(); // جلوگیری از ارسال کلیک به لایه‌های زیرین
-            resetGame();
-        });
-
-        // ب) رویداد دکمه جایزه (فقط کلیک)
-        rewardBtn.addEventListener('click', function(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            if(AdController) {
-                AdController.show().then(() => {
-                    localStorage.setItem('last_ad_timestamp', Date.now());
-                    pendingBonus = 10;
-                    alert("Bonus Unlocked! Start the game.");
-                    refreshAdStatus();
-                }).catch(() => {
-                    alert("Ad not ready. Try again.");
-                });
-            }
-        });
-
-        // ج) رویداد پرش (جدا از دکمه‌ها)
-        // از PointerDown استفاده می‌کنیم که هم ماوس و هم لمس را شامل می‌شود
-        window.addEventListener('pointerdown', function(event) {
-            // شرط حیاتی: اگر بازی فعال است و کاربر روی دکمه کلیک نکرده، بپر
-            if (active && event.target.tagName !== 'BUTTON') {
-                bird.v = -8;
-            }
-        });
-
-        // د) جلوگیری از رفتارهای مزاحم مرورگر در موبایل
-        window.addEventListener('touchstart', function(e) {
-            if (active && e.target.tagName !== 'BUTTON') {
-                if (e.cancelable) e.preventDefault();
-            }
-        }, { passive: false });
-
-        // شروع اولیه
-        document.getElementById('hs').innerText = localStorage.getItem('ton_highscore') || 0;
-        refreshAdStatus();
     </script>
 </body>
 </html>
