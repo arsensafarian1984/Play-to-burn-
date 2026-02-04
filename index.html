@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Ton Burner Game</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://sad.adsgram.ai/js/adsgram-adbox.js"></script>
+    <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-user-select: none; }
         #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 22px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
@@ -42,8 +42,8 @@
         const AD_DELAY = 2 * 60 * 1000; // ۲ دقیقه انتظار در هر بار باز کردن بازی
         const AD_COOLDOWN = 6 * 60 * 60 * 1000; // ۶ ساعت فاصله بین هر تبلیغ پاداش‌دار
 
-        // جایگذاری بلاک آیدی ادزگرم (وقتی گرفتی جایگزین کن)
-        const AdController = window.Adsgram.init({ blockId: "YOUR_BLOCK_ID_HERE" });
+        // جایگذاری آیدی شما: 22364
+        const AdController = window.Adsgram.init({ blockId: "22364" }); 
 
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
@@ -148,11 +148,9 @@
             ctx.fillStyle = "#000";
             ctx.fillRect(0,0,canvas.width, canvas.height);
             
-            // رسم پرنده (لوگو)
             if(imgTon.complete) ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
             else { ctx.fillStyle = "#00d4ff"; ctx.beginPath(); ctx.arc(bird.x, bird.y, 20, 0, Math.PI*2); ctx.fill(); }
 
-            // رسم لوله‌ها (آتش)
             for(let i=0; i<pipes.length; i++) {
                 let p = pipes[i];
                 if(imgFire.complete) {
@@ -183,23 +181,18 @@
         startBtn.onclick = () => reset(0);
 
         adBtn.onclick = () => {
-            if (AdController.blockId === "YOUR_BLOCK_ID_HERE") {
-                alert("Ads are not active for this bot yet. Starting new mission...");
-                reset(0);
-                return;
-            }
-
+            // نمایش تبلیغ با Block ID جدید شما
             AdController.show().then(() => {
                 localStorage.setItem('last_ad_time', Date.now());
                 alert("Reward Unlocked! Starting with 10 Points.");
                 reset(10); 
-            }).catch(() => {
-                alert("Ad not completed.");
+            }).catch((err) => {
+                console.log("Ad skipped or error:", err);
+                alert("Ad not completed. No reward given.");
                 reset(0);
             });
         };
 
-        // کنترل پرش
         const jump = (e) => { if(active) { bird.v = -8; if(e) e.preventDefault(); } };
         window.onmousedown = jump;
         window.ontouchstart = jump;
