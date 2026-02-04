@@ -11,8 +11,8 @@
         #best { font-size: 14px; color: #fff; display: block; }
         #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
         button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; }
-        #ad-btn { background: #ffcc00; color: #000; display: none; } /* در ابتدا مخفی است */
-        #ad-btn:disabled { background: #555; color: #888; box-shadow: none; }
+        #ad-btn { background: #ffcc00; color: #000; display: none; }
+        #ad-btn:disabled { background: #444; color: #888; box-shadow: none; cursor: not-allowed; }
         canvas { display: block; }
     </style>
 </head>
@@ -24,7 +24,7 @@
     <div id="menu">
         <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
         <button id="b">START MISSION 🔥</button>
-        <button id="ad-btn">BONUS +10 PTS 🎁</button>
+        <button id="ad-btn">GET +10 PTS BONUS 🎁</button>
     </div>
     <canvas id="c"></canvas>
 
@@ -33,9 +33,7 @@
         tg.expand();
         tg.ready();
 
-        // زمان ورود کاربر به بازی برای شرط ۲ دقیقه
         const sessionStartTime = Date.now();
-
         const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "22364" }) : null;
 
         var canvas = document.getElementById('c');
@@ -46,7 +44,8 @@
         var imgTon = new Image(); imgTon.src = 'logo.png';
         var imgFire = new Image(); imgFire.src = 'fire.png';
 
-        var bird, pipes, score, active = false;
+        var bird, pipes, score = 0, active = false;
+        var pendingBonus = 0; // پاداش ذخیره شده
         var gameSpeed = 3.5;
         var pipeGap = 240;
         var lastUpdate = Date.now();
@@ -64,32 +63,32 @@
 
         function checkAdEligibility() {
             const now = Date.now();
-            const lastAdTime = localStorage.getItem('last_ad_timestamp') || 0;
+            const lastAdTime = parseInt(localStorage.getItem('last_ad_timestamp') || 0);
             const fourHours = 4 * 60 * 60 * 1000;
             const twoMinutes = 2 * 60 * 1000;
 
-            // ۱. بررسی اینکه آیا ۲ دقیقه از باز کردن ربات گذشته است؟
             if (now - sessionStartTime >= twoMinutes) {
-                adBtn.style.display = 'block'; // نمایش دکمه
-
-                // ۲. بررسی اینکه آیا ۴ ساعت از آخرین پاداش گذشته است؟
+                adBtn.style.display = 'block';
                 if (now - lastAdTime > fourHours) {
                     adBtn.disabled = false;
-                    adBtn.innerHTML = "BONUS +10 PTS 🎁";
+                    adBtn.innerHTML = "GET +10 PTS BONUS 🎁";
                 } else {
                     adBtn.disabled = true;
-                    const remainingMin = Math.ceil((fourHours - (now - lastAdTime)) / (1000 * 60));
-                    adBtn.innerHTML = "WAIT " + Math.floor(remainingMin/60) + "h " + (remainingMin%60) + "m";
+                    const diff = fourHours - (now - lastAdTime);
+                    const h = Math.floor(diff / (1000 * 60 * 60));
+                    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    adBtn.innerHTML = "WAIT " + h + "h " + m + "m";
                 }
             } else {
-                adBtn.style.display = 'none'; // هنوز ۲ دقیقه نشده
+                adBtn.style.display = 'none';
             }
         }
 
-        function reset(bonusScore = 0) {
+        function reset() {
             bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
             pipes = []; 
-            score = bonusScore; 
+            score = pendingBonus; // استفاده از پاداش ذخیره شده
+            pendingBonus = 0; // ریست کردن پاداش برای دفعه بعد
             gameSpeed = 3.5;
             active = true;
             document.getElementById('menu').style.display = 'none';
@@ -125,9 +124,6 @@
                 localStorage.setItem('ton_highscore', highScore);
                 document.getElementById('hs').innerHTML = highScore;
             }
-            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-            
-            // نمایش منو و چک کردن شرایط دکمه تبلیغ
             document.getElementById('menu').style.display = 'flex';
             document.getElementById('t').innerHTML = "SCORE: " + score;
             checkAdEligibility();
@@ -166,23 +162,25 @@
             requestAnimationFrame(loop);
         }
 
-        btn.onclick = function(e) { e.preventDefault(); reset(0); };
+        btn.onclick = function(e) { e.preventDefault(); reset(); };
 
         adBtn.onclick = function(e) {
             e.preventDefault();
-            if (!AdController) return reset(0);
+            if (!AdController) return;
+
             AdController.show().then(() => {
-                localStorage.setItem('last_ad_timestamp', Date.now());
-                reset(10); 
+                localStorage.setItem('last_ad_timestamp', Date.now().toString());
+                pendingBonus = 10; // امتیاز را رزرو کن
+                alert("Bonus Unlocked! Start the game to use your +10 points.");
+                checkAdEligibility(); // بلافاصله دکمه را غیرفعال کن
             }).catch(() => {
-                reset(0);
+                alert("Ad not finished.");
             });
         };
 
         window.onmousedown = function() { if(active) bird.v = -8; };
         window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
 
-        // اجرای اولیه برای نمایش منو
         checkAdEligibility();
     </script>
 </body>
