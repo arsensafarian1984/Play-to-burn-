@@ -35,6 +35,15 @@ canvas{display:block}
   align-items:center;
   color:#fff;
   z-index:20;
+  text-align:center;
+}
+
+.policy{
+  font-size:12px;
+  opacity:.75;
+  max-width:300px;
+  margin-top:12px;
+  line-height:1.4;
 }
 
 button{
@@ -63,6 +72,13 @@ SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
   <h1>TON BURNER</h1>
   <button id="startBtn">START 🔥</button>
   <button id="adBtn">BONUS +10 🎁</button>
+
+  <!-- POLICY -->
+  <div class="policy">
+    This game does not collect or store personal data.<br>
+    Rewarded ads are provided by AdsGram.<br>
+    Watching ads is optional and gives in-game bonus only.
+  </div>
 </div>
 
 <canvas id="c"></canvas>
@@ -102,10 +118,12 @@ let score = 0;
 let active = false;
 
 let lastTime = 0;
-let speed = 220;               // px/sec
+let speed = 220;
 const gravity = 900;
 const jump = -420;
-const GAP_RATIO = 0.6;
+
+/* 🔥 دهانه آتش تنگ‌تر */
+const GAP_RATIO = 0.5;
 
 /* ==== play time for ad ==== */
 let playTime = 0;
@@ -127,7 +145,7 @@ function initAds(){
   if(!window.AdsgramAdController) return;
 
   Ad = window.AdsgramAdController.init({
-    blockId: "2340",   // تست
+    blockId: "2340",
     test: true
   });
 }
@@ -166,7 +184,7 @@ function updateAdButton(){
   const fourHours = 4 * 60 * 60 * 1000;
 
   if(Date.now() - lastAd < fourHours) return;
-  if(playTime < 120000) return; // 2 minutes
+  if(playTime < 60000) return; // ⏱ 1 MINUTE
 
   adBtn.style.display = "block";
 }
@@ -188,7 +206,7 @@ function loop(t){
     if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 300){
       pipes.push({
         x: canvas.width,
-        top: Math.random()*(canvas.height-gap-100)+50,
+        top: Math.random()*(canvas.height-gap-120)+60,
         passed:false
       });
     }
@@ -216,7 +234,7 @@ function loop(t){
     if(bird.y < 0 || bird.y > canvas.height) endGame();
   }
 
-  /* ===== DRAW BIRD ===== */
+  /* DRAW BIRD */
   if(bird){
     if(birdImg.complete){
       ctx.drawImage(birdImg, bird.x-20, bird.y-20, 40, 40);
@@ -226,21 +244,18 @@ function loop(t){
     }
   }
 
-  /* ===== DRAW FIRE PIPES (CORRECT) ===== */
+  /* DRAW FIRE PIPES */
   pipes.forEach(p=>{
     const w = 60;
     const gap = canvas.height * GAP_RATIO;
 
     if(fireImg.complete){
-
-      /* TOP (FLIPPED) */
       ctx.save();
       ctx.translate(p.x + w/2, p.top);
       ctx.scale(1, -1);
       ctx.drawImage(fireImg, -w/2, 0, w, p.top);
       ctx.restore();
 
-      /* BOTTOM */
       ctx.drawImage(
         fireImg,
         p.x,
@@ -248,11 +263,6 @@ function loop(t){
         w,
         canvas.height - (p.top + gap)
       );
-
-    }else{
-      ctx.fillStyle="orange";
-      ctx.fillRect(p.x,0,w,p.top);
-      ctx.fillRect(p.x,p.top+gap,w,canvas.height);
     }
   });
 
@@ -288,8 +298,7 @@ adBtn.onclick = ()=>{
     localStorage.setItem("lastAd", Date.now());
     playTime = 0;
     startGame(10);
-  }).catch(e=>{
-    console.log(e);
+  }).catch(()=>{
     alert("Ad not available");
   });
 };
