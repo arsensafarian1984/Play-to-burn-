@@ -31,7 +31,7 @@ Game stores score locally. Ads optional. No personal data collected. Test ads en
 </div>
 </div>
 
-<canvas id="game" width="640" height="360"></canvas>
+<canvas id="game"></canvas>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://adsgram.ai/js/adsgram-ad-sdk.js"></script>
@@ -46,16 +46,24 @@ const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
 let bird,pipes=[],score=0,active=false,speed=3.5;
-const GAP=220;
-
-const AD_REQUIRED_PLAYTIME=2*60*1000; // 2 دقیقه مجموع زمان بازی
-const AD_COOLDOWN=4*60*60*1000;       // 4 ساعت
-
-let sessionPlayTime=0;
-let roundStartTime=0;
+let canvasWidth=640,canvasHeight=360;
+const GAP_RATIO=0.6; // ارتفاع لوله نسبت به canvas
+const AD_REQUIRED_PLAYTIME=2*60*1000;
+const AD_COOLDOWN=4*60*60*1000;
+let sessionPlayTime=0,roundStartTime=0;
 
 const bestEl=document.getElementById("best");
 bestEl.textContent=localStorage.getItem("ton_best")||0;
+
+/* ================= RESIZE ================= */
+function resizeCanvas(){
+    canvasWidth=window.innerWidth;
+    canvasHeight=window.innerHeight;
+    canvas.width=canvasWidth;
+    canvas.height=canvasHeight;
+}
+window.addEventListener("resize",resizeCanvas);
+resizeCanvas();
 
 /* ================= IMAGES ================= */
 const imgPlayer=new Image();
@@ -70,15 +78,12 @@ let AdController=null;
 function loadAdsTest(){
     if(AdController) return;
     if(!window.AdsgramAdController) return;
-    AdController = window.AdsgramAdController.init({
-        blockId:"2340",
-        test:true // ← حالت تست
-    });
+    AdController = window.AdsgramAdController.init({blockId:"2340", test:true});
 }
 
 /* ================= GAME FUNCTIONS ================= */
 function startGame(bonus=0){
-    bird={x:80,y:180,v:0};
+    bird={x:canvasWidth*0.15, y:canvasHeight/2, v:0};
     pipes=[];
     score=bonus;
     speed=3.5;
@@ -111,21 +116,29 @@ function updateAdButton(){
 function update(){
     if(!active) return;
     bird.v+=0.5; bird.y+=bird.v;
-    if(!pipes.length||pipes[pipes.length-1].x<360){pipes.push({x:640,top:Math.random()*120+60,passed:false});}
+    const pipeGap = canvasHeight * GAP_RATIO;
+
+    if(!pipes.length||pipes[pipes.length-1].x<canvasWidth-200){
+        pipes.push({x:canvasWidth, top:Math.random()*(canvasHeight-pipeGap-40)+20, passed:false});
+    }
+
     pipes.forEach(p=>{
         p.x-=speed;
-        if(bird.x+15>p.x && bird.x-15<p.x+50 && (bird.y<p.top || bird.y>p.top+GAP)){endGame();}
-        if(!p.passed && p.x<bird.x){p.passed=true;score++;speed+=0.08;document.getElementById("score").textContent=score;}
+        if(bird.x+15>p.x && bird.x-15<p.x+50 && (bird.y<p.top || bird.y>p.top+pipeGap)){
+            endGame();
+        }
+        if(!p.passed && p.x<bird.x){p.passed=true; score++; speed+=0.08; document.getElementById("score").textContent=score;}
     });
     if(pipes[0]?.x<-60)pipes.shift();
-    if(bird.y<0||bird.y>360)endGame();
+    if(bird.y<0||bird.y>canvasHeight) endGame();
 }
 
 function draw(){
-    ctx.fillStyle="#000";ctx.fillRect(0,0,640,360);
+    ctx.fillStyle="#000"; ctx.fillRect(0,0,canvasWidth,canvasHeight);
     if(imgPlayer.complete&&imgPlayer.width){ctx.drawImage(imgPlayer,bird.x-20,bird.y-20,40,40);}
     else{ctx.fillStyle="#00d4ff";ctx.fillRect(bird.x-20,bird.y-20,40,40);}
-    pipes.forEach(p=>{ctx.fillStyle="orange";ctx.fillRect(p.x,0,50,p.top);ctx.fillRect(p.x,p.top+GAP,50,360);});
+    const pipeGap = canvasHeight*GAP_RATIO;
+    pipes.forEach(p=>{ctx.fillStyle="orange"; ctx.fillRect(p.x,0,50,p.top); ctx.fillRect(p.x,p.top+pipeGap,50,canvasHeight);});
 }
 
 function loop(){update();draw();requestAnimationFrame(loop);}
@@ -140,11 +153,11 @@ document.getElementById("startBtn").onclick=()=>startGame(0);
 
 document.getElementById("adBtn").onclick=()=>{
     loadAdsTest();
-    if(!AdController){alert("Ads not ready");return;}
+    if(!AdController){alert("Ads not ready"); return;}
     AdController.show().then(()=>{
         alert("Test Ad shown!");
         localStorage.setItem("last_ad_time",Date.now());
-        sessionPlayTime=0; // ریست ۲ دقیقه
+        sessionPlayTime=0;
         startGame(10);
     }).catch(()=>alert("Ad failed to load"));
 };
