@@ -1,185 +1,259 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://sad.adsgram.ai/js/adsgram-ad-sdk.js"></script>
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: Arial; -webkit-user-select: none; }
-        #ui { position: absolute; top: 40px; width: 100%; text-align: center; color: #00d4ff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0 0 10px #00d4ff; }
-        #best { font-size: 14px; color: #fff; display: block; }
-        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; z-index: 999; }
-        button { padding: 15px 40px; font-size: 18px; background: #00d4ff; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,212,255,0.3); margin: 10px; }
-        #ad-btn { background: #ffcc00; color: #000; display: none; }
-        #ad-btn:disabled { background: #555; color: #888; box-shadow: none; }
-        canvas { display: block; }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<title>TON Burner</title>
+
+<!-- Telegram WebApp SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Adsgram SDK (Official) -->
+<script src="https://adsgram.ai/js/adsgram-ad-sdk.js"></script>
+
+<style>
+body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+    user-select: none;
+}
+
+#ui {
+    position: absolute;
+    top: 10px;
+    width: 100%;
+    text-align: center;
+    color: #00d4ff;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+#menu {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+button {
+    padding: 14px 36px;
+    border-radius: 40px;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#startBtn {
+    background: #00d4ff;
+    color: #000;
+}
+
+#adBtn {
+    background: #ffcc00;
+    color: #000;
+}
+
+#adBtn:disabled {
+    background: #555;
+    color: #888;
+}
+
+#policy {
+    font-size: 11px;
+    opacity: 0.6;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.4;
+}
+
+canvas {
+    display: block;
+    margin: auto;
+    background: #000;
+}
+</style>
 </head>
+
 <body>
-    <div id="ui">
-        SCORE: <span id="s">0</span>
-        <span id="best">BEST: <span id="hs">0</span></span>
+
+<div id="ui">
+    SCORE: <span id="score">0</span> |
+    BEST: <span id="best">0</span>
+</div>
+
+<div id="menu">
+    <h1 style="color:#00d4ff">TON BURNER</h1>
+
+    <button id="startBtn">START GAME 🔥</button>
+
+    <button id="adBtn">
+        Watch Ad & Get +10 Points 🎁
+    </button>
+
+    <div id="policy">
+        This game stores score locally on your device.<br>
+        Optional ads are provided by Adsgram.<br>
+        No personal data is collected.
     </div>
-    <div id="menu">
-        <h1 id="t" style="color:#00d4ff; font-size: 40px;">TON BURNER</h1>
-        <button id="b">START MISSION 🔥</button>
-        <button id="ad-btn">BONUS +10 PTS 🎁</button>
-    </div>
-    <canvas id="c"></canvas>
+</div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.ready();
+<canvas id="game" width="640" height="360"></canvas>
 
-        // مقداردهی تبلیغات
-        const AdController = window.Adsgram ? window.Adsgram.init({ blockId: "22364" }) : null;
+<script>
+/* ================= SAFE TELEGRAM INIT ================= */
+const tg = window.Telegram?.WebApp;
+if (tg) {
+    tg.ready();
+    tg.expand();
+}
 
-        var canvas = document.getElementById('c');
-        var ctx = canvas.getContext('2d');
-        var btn = document.getElementById('b');
-        var adBtn = document.getElementById('ad-btn');
-        
-        var imgTon = new Image(); imgTon.src = 'logo.png';
-        var imgFire = new Image(); imgFire.src = 'fire.png';
+/* ================= ADSGRAM INIT ================= */
+/*
+IMPORTANT:
+Replace YOUR_NEW_BLOCK_ID after Adsgram approves it
+*/
+const AdController =
+    window.AdsgramAdController
+        ? window.AdsgramAdController.init({ blockId: "YOUR_NEW_BLOCK_ID" })
+        : null;
 
-        var bird, pipes, score, active = false;
-        var gameSpeed = 3.5;
-        var pipeGap = 240;
-        var lastUpdate = Date.now();
-        var timestep = 1000 / 60;
+/* ================= CANVAS ================= */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-        var highScore = localStorage.getItem('ton_highscore') || 0;
-        document.getElementById('hs').innerHTML = highScore;
+/* ================= GAME STATE ================= */
+let bird, pipes, score = 0, active = false;
+let speed = 3.5;
+const gap = 220;
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.onresize = resize;
-        resize();
+const bestScore = Number(localStorage.getItem("ton_best") || 0);
+document.getElementById("best").textContent = bestScore;
 
-        // بررسی محدودیت ۴ ساعت
-        function checkAdCooldown() {
-            const lastAdTime = localStorage.getItem('last_ad_timestamp') || 0;
-            const now = Date.now();
-            const fourHours = 4 * 60 * 60 * 1000;
+/* ================= IMAGES (FAIL-SAFE) ================= */
+const imgPlayer = new Image();
+imgPlayer.src = "logo.png";
+imgPlayer.onerror = () => console.warn("logo.png not found");
 
-            if (now - lastAdTime > fourHours) {
-                adBtn.disabled = false;
-                adBtn.innerHTML = "BONUS +10 PTS 🎁";
-            } else {
-                adBtn.disabled = true;
-                const remainingMin = Math.ceil((fourHours - (now - lastAdTime)) / (1000 * 60));
-                adBtn.innerHTML = "WAIT " + Math.floor(remainingMin/60) + "h " + (remainingMin%60) + "m";
-            }
-        }
+const imgPipe = new Image();
+imgPipe.src = "fire.png";
+imgPipe.onerror = () => console.warn("fire.png not found");
 
-        function reset(bonusScore = 0) {
-            bird = { x: 50, y: canvas.height/2, v: 0, g: 0.5 };
-            pipes = []; 
-            score = bonusScore; 
-            gameSpeed = 3.5;
-            active = true;
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('s').innerHTML = score;
-            lastUpdate = Date.now();
-            loop();
-        }
+/* ================= GAME FUNCTIONS ================= */
+function resetGame(bonus = 0) {
+    bird = { x: 80, y: 180, v: 0 };
+    pipes = [];
+    score = bonus;
+    speed = 3.5;
+    active = true;
 
-        function update() {
-            bird.v += bird.g;
-            bird.y += bird.v;
-            
-            if(pipes.length === 0 || pipes[pipes.length-1].x < canvas.width - 250) {
-                pipes.push({ x: canvas.width, t: Math.random()*(canvas.height-400)+100, scored: false });
-            }
+    document.getElementById("menu").style.display = "none";
+    document.getElementById("score").textContent = score;
+    loop();
+}
 
-            for(var i=0; i<pipes.length; i++) {
-                var p = pipes[i];
-                p.x -= gameSpeed;
-                if(bird.x+15 > p.x && bird.x-15 < p.x+60 && (bird.y-15 < p.t || bird.y+18 > p.t+pipeGap)) gameOver();
-                if(!p.scored && p.x < bird.x) {
-                    p.scored = true; score++;
-                    document.getElementById('s').innerHTML = score;
-                    gameSpeed += 0.08;
-                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-                }
-            }
-            if(pipes.length > 0 && pipes[0].x < -100) pipes.shift();
-            if(bird.y > canvas.height || bird.y < 0) gameOver();
-        }
+function gameOver() {
+    active = false;
+    document.getElementById("menu").style.display = "flex";
 
-        function gameOver() {
-            active = false;
-            if(score > highScore) {
-                highScore = score;
-                localStorage.setItem('ton_highscore', highScore);
-                document.getElementById('hs').innerHTML = highScore;
-            }
-            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-            
-            // نمایش دکمه تبلیغ در منوی باخت
-            adBtn.style.display = 'block';
-            checkAdCooldown();
+    const best = Number(localStorage.getItem("ton_best") || 0);
+    if (score > best) {
+        localStorage.setItem("ton_best", score);
+        document.getElementById("best").textContent = score;
+    }
+}
+
+function update() {
+    bird.v += 0.5;
+    bird.y += bird.v;
+
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < 360) {
+        pipes.push({
+            x: 640,
+            top: Math.random() * 120 + 60,
+            passed: false
+        });
+    }
+
+    pipes.forEach(p => {
+        p.x -= speed;
+
+        if (
+            bird.x + 15 > p.x &&
+            bird.x - 15 < p.x + 50 &&
+            (bird.y < p.top || bird.y > p.top + gap)
+        ) {
+            gameOver();
         }
 
-        function draw() {
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0,0,canvas.width, canvas.height);
-            if(imgTon.complete && imgTon.width > 0) {
-                ctx.drawImage(imgTon, bird.x-25, bird.y-25, 50, 50);
-            } else {
-                ctx.fillStyle = "#00d4ff"; ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
-            }
-            for(var i=0; i<pipes.length; i++) {
-                var p = pipes[i];
-                if(imgFire.complete && imgFire.width > 0) {
-                    ctx.save();
-                    ctx.translate(p.x + 30, p.t); ctx.scale(1, -1);
-                    ctx.drawImage(imgFire, -30, 0, 60, p.t);
-                    ctx.restore();
-                    ctx.drawImage(imgFire, p.x, p.t + pipeGap, 60, canvas.height - (p.t + pipeGap));
-                } else {
-                    ctx.fillStyle = "orange";
-                    ctx.fillRect(p.x, 0, 60, p.t);
-                    ctx.fillRect(p.x, p.t + pipeGap, 60, canvas.height);
-                }
-            }
+        if (!p.passed && p.x < bird.x) {
+            p.passed = true;
+            score++;
+            speed += 0.08;
+            document.getElementById("score").textContent = score;
         }
+    });
 
-        function loop() {
-            if(!active) {
-                document.getElementById('menu').style.display = 'flex';
-                document.getElementById('t').innerHTML = "SCORE: " + score;
-                return;
-            }
-            var now = Date.now();
-            var delta = now - lastUpdate;
-            while(delta >= timestep) { update(); delta -= timestep; lastUpdate += timestep; }
-            draw();
-            requestAnimationFrame(loop);
-        }
+    if (pipes[0]?.x < -60) pipes.shift();
+    if (bird.y < 0 || bird.y > 360) gameOver();
+}
 
-        btn.onclick = function(e) { e.preventDefault(); reset(0); };
+function draw() {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,640,360);
 
-        // عملکرد دکمه تبلیغ
-        adBtn.onclick = function(e) {
-            e.preventDefault();
-            if (!AdController) return reset(0);
+    if (imgPlayer.complete && imgPlayer.width) {
+        ctx.drawImage(imgPlayer, bird.x-20, bird.y-20, 40, 40);
+    } else {
+        ctx.fillStyle = "#00d4ff";
+        ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
+    }
 
-            AdController.show().then(() => {
-                localStorage.setItem('last_ad_timestamp', Date.now());
-                reset(10); // شروع بازی با ۱۰ امتیاز
-            }).catch(() => {
-                reset(0);
-            });
-        };
+    pipes.forEach(p => {
+        ctx.fillStyle = "orange";
+        ctx.fillRect(p.x, 0, 50, p.top);
+        ctx.fillRect(p.x, p.top + gap, 50, 360);
+    });
+}
 
-        window.onmousedown = function() { if(active) bird.v = -8; };
-        window.ontouchstart = function(e) { if(active) { bird.v = -8; e.preventDefault(); } };
+function loop() {
+    if (!active) return;
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
 
-    </script>
+/* ================= INPUT ================= */
+window.addEventListener("mousedown", () => active && (bird.v = -8));
+window.addEventListener("touchstart", e => {
+    if (active) {
+        bird.v = -8;
+        e.preventDefault();
+    }
+});
+
+/* ================= BUTTONS ================= */
+document.getElementById("startBtn").onclick = () => resetGame(0);
+
+document.getElementById("adBtn").onclick = () => {
+    if (!AdController) {
+        alert("Ads are not available right now.");
+        return;
+    }
+
+    AdController.show()
+        .then(() => resetGame(10))
+        .catch(() => alert("Ad failed to load."));
+};
+</script>
+
 </body>
 </html>
