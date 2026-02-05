@@ -1,21 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TON Burner</title>
+
 <style>
-body{margin:0;background:#000;font-family:Arial;overflow:hidden;user-select:none;}
-canvas{display:block;margin:auto;background:#000;}
-#ui{position:absolute;top:10px;width:100%;text-align:center;color:#00d4ff;font-weight:bold;pointer-events:none;}
-#menu{position:absolute;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;}
-button{padding:14px 36px;border-radius:40px;border:none;font-size:16px;font-weight:bold;cursor:pointer;}
-#startBtn{background:#00d4ff;color:#000;}
-#adBtn{background:#ffcc00;color:#000;display:none;}
-#adBtn:disabled{background:#555;color:#888;}
-#policy{font-size:11px;opacity:0.6;text-align:center;max-width:280px;line-height:1.4;}
+body{margin:0;background:#000;overflow:hidden;font-family:Arial}
+canvas{display:block}
+#menu{
+position:absolute;inset:0;
+display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+background:rgba(0,0,0,.9);color:#fff
+}
+button{
+padding:14px 36px;border:none;border-radius:40px;
+font-size:16px;font-weight:bold;cursor:pointer
+}
+#startBtn{background:#00d4ff;color:#000}
+#adBtn{background:#ffcc00;color:#000;display:none}
+#adBtn:disabled{background:#555;color:#999}
+#ui{position:absolute;top:10px;width:100%;text-align:center;color:#0ff;font-weight:bold}
 </style>
 </head>
+
 <body>
 
 <div id="ui">
@@ -23,151 +32,158 @@ SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
 </div>
 
 <div id="menu">
-<h1 style="color:#00d4ff">TON BURNER</h1>
+<h1>TON BURNER</h1>
 <button id="startBtn">START GAME 🔥</button>
-<button id="adBtn">Watch Ad & Get +10 🎁</button>
-<div id="policy">
-Game stores score locally. Ads optional. No personal data collected. Test ads enabled.
-</div>
+<button id="adBtn">Watch Ad (+10)</button>
 </div>
 
-<canvas id="game"></canvas>
+<canvas id="c"></canvas>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://adsgram.ai/js/adsgram-ad-sdk.js"></script>
 
 <script>
-/* ================= TELEGRAM INIT ================= */
-const tg = window.Telegram?.WebApp;
-if(tg){tg.ready();tg.expand();}
+/* ========= ENV ========= */
+const isTelegram = !!window.Telegram?.WebApp;
+if(isTelegram){Telegram.WebApp.ready();Telegram.WebApp.expand();}
 
-/* ================= GAME STATE ================= */
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+/* ========= CANVAS ========= */
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+function resize(){c.width=innerWidth;c.height=innerHeight}
+addEventListener("resize",resize);resize();
 
-let bird, pipes=[], score=0, active=false, speed=3.5;
-let canvasWidth=640, canvasHeight=360;
-const GAP_RATIO=0.6;
-const AD_REQUIRED_PLAYTIME=2*60*1000;
-const AD_COOLDOWN=4*60*60*1000;
-let sessionPlayTime=0, roundStartTime=0;
+/* ========= ASSETS ========= */
+const birdImg=new Image();birdImg.src="logo.png";
+const fireImg=new Image();fireImg.src="fire.png";
 
-const bestEl = document.getElementById("best");
-bestEl.textContent = localStorage.getItem("ton_best")||0;
+/* ========= GAME ========= */
+let bird,pipes=[],score=0,active=false;
+let lastTime=0,playTime=0,startTime=0;
+let speed=220; // px per second
 
-/* ================= RESIZE ================= */
-function resizeCanvas(){
-    canvasWidth = window.innerWidth;
-    canvasHeight = window.innerHeight;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-}
-window.addEventListener("resize",resizeCanvas);
-resizeCanvas();
+const GAP_RATIO=.6;
+const scoreEl=scoreSpan=document.getElementById("score");
+const bestEl=document.getElementById("best");
+bestEl.textContent=localStorage.getItem("best")||0;
 
-/* ================= IMAGES ================= */
-const imgPlayer = new Image();
-imgPlayer.src = "logo.png";
-imgPlayer.onerror = ()=>console.log("logo.png missing");
-const imgPipe = new Image();
-imgPipe.src = "fire.png";
-imgPipe.onerror = ()=>console.log("fire.png missing");
-
-/* ================= ADSGRAM TEST MODE ================= */
-let AdController = null;
-function loadAdsTest(){
-    if(AdController) return;
-    if(!window.AdsgramAdController) return;
-    AdController = window.AdsgramAdController.init({blockId:"2340", test:true});
+/* ========= ADS ========= */
+let Ad=null;
+function initAds(){
+ if(!isTelegram)return;
+ if(!window.AdsgramAdController)return;
+ Ad=window.AdsgramAdController.init({
+   blockId:"2340",
+   test:true
+ });
 }
 
-/* ================= GAME FUNCTIONS ================= */
-function initBirdAndPipes(){
-    bird = {x: canvasWidth*0.15, y: canvasHeight/2, v:0};
-    pipes = [];
-}
-
+/* ========= START ========= */
 function startGame(bonus=0){
-    initBirdAndPipes();
-    score = bonus;
-    speed = 3.5;
-    active = true;
-    roundStartTime = Date.now();
-    document.getElementById("score").textContent = score;
-    document.getElementById("menu").style.display = "none";
+ bird={x:c.width*.2,y:c.height/2,v:0};
+ pipes=[];
+ score=bonus;
+ speed=220;
+ active=true;
+ startTime=Date.now();
+ menu.style.display="none";
+ scoreEl.textContent=score;
 }
 
+/* ========= END ========= */
 function endGame(){
-    if(active){ sessionPlayTime += Date.now() - roundStartTime; }
-    active = false;
-    document.getElementById("menu").style.display = "flex";
-    const best = Number(localStorage.getItem("ton_best")||0);
-    if(score > best){ localStorage.setItem("ton_best", score); bestEl.textContent = score; }
-    updateAdButton();
+ if(active) playTime+=Date.now()-startTime;
+ active=false;
+ menu.style.display="flex";
+
+ const best=+localStorage.getItem("best")||0;
+ if(score>best){localStorage.setItem("best",score);bestEl.textContent=score}
+ updateAdBtn();
 }
 
-function updateAdButton(){
-    const adBtn = document.getElementById("adBtn");
-    adBtn.style.display = "none";
-    const lastAd = Number(localStorage.getItem("last_ad_time")||0);
-    const now = Date.now();
-    if(now - lastAd < AD_COOLDOWN) return;
-    if(sessionPlayTime < AD_REQUIRED_PLAYTIME) return;
-    adBtn.style.display = "block";
+/* ========= AD LOGIC ========= */
+function updateAdBtn(){
+ const btn=adBtn;
+ btn.style.display="none";
+ const last=+localStorage.getItem("lastAd")||0;
+ if(Date.now()-last<4*3600000)return;
+ if(playTime<120000)return;
+ btn.style.display="block";
 }
 
-/* ================= GAME LOOP ================= */
-function update(){
-    if(!active) return;
-    bird.v += 0.5;
-    bird.y += bird.v;
-    const pipeGap = canvasHeight*GAP_RATIO;
+/* ========= LOOP ========= */
+function loop(t){
+ const dt=(t-lastTime)/1000;
+ lastTime=t;
 
-    if(!pipes.length || pipes[pipes.length-1].x < canvasWidth-200){
-        pipes.push({x:canvasWidth, top:Math.random()*(canvasHeight-pipeGap-40)+20, passed:false});
-    }
+ ctx.fillStyle="#000";
+ ctx.fillRect(0,0,c.width,c.height);
 
-    pipes.forEach(p=>{
-        p.x -= speed;
-        if(bird.x+15 > p.x && bird.x-15 < p.x+50 && (bird.y < p.top || bird.y > p.top + pipeGap)){
-            endGame();
-        }
-        if(!p.passed && p.x < bird.x){ p.passed = true; score++; speed+=0.08; document.getElementById("score").textContent = score;}
-    });
+ if(active){
+  bird.v+=900*dt;
+  bird.y+=bird.v*dt;
 
-    if(pipes[0]?.x < -60) pipes.shift();
-    if(bird.y < 0 || bird.y > canvasHeight) endGame();
+  const gap=c.height*GAP_RATIO;
+  if(!pipes.length||pipes.at(-1).x<c.width-300){
+   pipes.push({x:c.width,top:Math.random()*(c.height-gap-80)+40,pass:false});
+  }
+
+  pipes.forEach(p=>{
+   p.x-=speed*dt;
+
+   if(
+    bird.x+20>p.x && bird.x-20<p.x+60 &&
+    (bird.y<p.top||bird.y>p.top+gap)
+   ) endGame();
+
+   if(!p.pass&&p.x<bird.x){p.pass=true;score++;speed+=12;scoreEl.textContent=score;}
+  });
+
+  if(pipes[0]?.x<-80)pipes.shift();
+  if(bird.y<0||bird.y>c.height)endGame();
+ }
+
+ /* DRAW */
+ if(bird){
+  birdImg.complete?
+   ctx.drawImage(birdImg,bird.x-20,bird.y-20,40,40):
+   ctx.fillRect(bird.x-20,bird.y-20,40,40);
+ }
+
+ pipes.forEach(p=>{
+  if(fireImg.complete){
+   ctx.drawImage(fireImg,p.x,0,60,p.top);
+   ctx.drawImage(fireImg,p.x,p.top+c.height*GAP_RATIO,60,c.height);
+  }else{
+   ctx.fillStyle="orange";
+   ctx.fillRect(p.x,0,60,p.top);
+   ctx.fillRect(p.x,p.top+c.height*GAP_RATIO,60,c.height);
+  }
+ });
+
+ requestAnimationFrame(loop);
 }
+requestAnimationFrame(loop);
 
-function draw(){
-    ctx.fillStyle="#000"; ctx.fillRect(0,0,canvasWidth,canvasHeight);
-    if(bird){
-        if(imgPlayer.complete && imgPlayer.width){ ctx.drawImage(imgPlayer, bird.x-20, bird.y-20, 40, 40);}
-        else{ ctx.fillStyle="#00d4ff"; ctx.fillRect(bird.x-20,bird.y-20,40,40);}
-    }
-    const pipeGap = canvasHeight*GAP_RATIO;
-    pipes.forEach(p=>{ctx.fillStyle="orange"; ctx.fillRect(p.x,0,50,p.top); ctx.fillRect(p.x,p.top+pipeGap,50,canvasHeight);});
-}
+/* ========= INPUT ========= */
+addEventListener("mousedown",()=>active&&(bird.v=-420));
+addEventListener("touchstart",e=>{if(active){bird.v=-420;e.preventDefault()}});
 
-function loop(){ draw(); update(); requestAnimationFrame(loop);}
-loop();
+/* ========= BUTTONS ========= */
+startBtn.onclick=()=>startGame(0);
 
-/* ================= INPUT ================= */
-window.addEventListener("mousedown",()=>active&&(bird.v=-8));
-window.addEventListener("touchstart",e=>{if(active){bird.v=-8;e.preventDefault();}});
-
-/* ================= BUTTONS ================= */
-document.getElementById("startBtn").onclick = ()=>startGame(0);
-
-document.getElementById("adBtn").onclick = ()=>{
-    loadAdsTest();
-    if(!AdController){ alert("Ads not ready"); return; }
-    AdController.show().then(()=>{
-        alert("Test Ad shown!");
-        localStorage.setItem("last_ad_time",Date.now());
-        sessionPlayTime=0;
-        startGame(10);
-    }).catch(()=>alert("Ad failed to load"));
+adBtn.onclick=()=>{
+ if(!isTelegram){
+  alert("Test Ad (Browser)");
+  localStorage.setItem("lastAd",Date.now());
+  playTime=0;startGame(10);return;
+ }
+ initAds();
+ if(!Ad){alert("Ads not ready");return;}
+ Ad.show().then(()=>{
+  localStorage.setItem("lastAd",Date.now());
+  playTime=0;startGame(10);
+ }).catch(()=>alert("Ad failed"));
 };
 </script>
 </body>
