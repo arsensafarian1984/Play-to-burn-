@@ -6,20 +6,25 @@
 
 <title>TON Burner</title>
 
-<!-- Telegram WebApp SDK -->
+<!-- Telegram SDK -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<!-- Adsgram SDK (Official) -->
+<!-- Adsgram SDK -->
 <script src="https://adsgram.ai/js/adsgram-ad-sdk.js"></script>
 
 <style>
 body {
     margin: 0;
     background: #000;
-    color: #fff;
     font-family: Arial, sans-serif;
     overflow: hidden;
     user-select: none;
+}
+
+canvas {
+    display: block;
+    margin: auto;
+    background: #000;
 }
 
 #ui {
@@ -41,6 +46,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 12px;
+    color: #fff;
 }
 
 button {
@@ -60,6 +66,7 @@ button {
 #adBtn {
     background: #ffcc00;
     color: #000;
+    display: none;
 }
 
 #adBtn:disabled {
@@ -73,12 +80,6 @@ button {
     text-align: center;
     max-width: 280px;
     line-height: 1.4;
-}
-
-canvas {
-    display: block;
-    margin: auto;
-    background: #000;
 }
 </style>
 </head>
@@ -95,13 +96,11 @@ canvas {
 
     <button id="startBtn">START GAME 🔥</button>
 
-    <button id="adBtn">
-        Watch Ad & Get +10 Points 🎁
-    </button>
+    <button id="adBtn">Watch Ad & Get +10 🎁</button>
 
     <div id="policy">
         This game stores score locally on your device.<br>
-        Optional ads are provided by Adsgram.<br>
+        Ads are optional and provided by Adsgram.<br>
         No personal data is collected.
     </div>
 </div>
@@ -109,7 +108,7 @@ canvas {
 <canvas id="game" width="640" height="360"></canvas>
 
 <script>
-/* ================= SAFE TELEGRAM INIT ================= */
+/* ================= TELEGRAM SAFE INIT ================= */
 const tg = window.Telegram?.WebApp;
 if (tg) {
     tg.ready();
@@ -117,10 +116,7 @@ if (tg) {
 }
 
 /* ================= ADSGRAM INIT ================= */
-/*
-IMPORTANT:
-Replace YOUR_NEW_BLOCK_ID after Adsgram approves it
-*/
+/* بعد از تأیید، بلاک آیدی جدید را جایگزین کن */
 const AdController =
     window.AdsgramAdController
         ? window.AdsgramAdController.init({ blockId: "YOUR_NEW_BLOCK_ID" })
@@ -131,51 +127,85 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 /* ================= GAME STATE ================= */
-let bird, pipes, score = 0, active = false;
+let bird;
+let pipes = [];
+let score = 0;
+let active = false;
 let speed = 3.5;
-const gap = 220;
 
-const bestScore = Number(localStorage.getItem("ton_best") || 0);
-document.getElementById("best").textContent = bestScore;
+const GAP = 220;
+
+/* ================= AD RULES ================= */
+const AD_REQUIRED_PLAYTIME = 2 * 60 * 1000; // 2 minutes total play
+const AD_COOLDOWN = 4 * 60 * 60 * 1000;     // 4 hours
+
+let sessionPlayTime = 0; // مجموع زمان بازی
+let roundStartTime = 0;  // شروع هر راند
+
+/* ================= BEST SCORE ================= */
+const bestEl = document.getElementById("best");
+bestEl.textContent = localStorage.getItem("ton_best") || 0;
 
 /* ================= IMAGES (FAIL-SAFE) ================= */
 const imgPlayer = new Image();
 imgPlayer.src = "logo.png";
-imgPlayer.onerror = () => console.warn("logo.png not found");
 
 const imgPipe = new Image();
 imgPipe.src = "fire.png";
-imgPipe.onerror = () => console.warn("fire.png not found");
 
 /* ================= GAME FUNCTIONS ================= */
-function resetGame(bonus = 0) {
+function startGame(bonus = 0) {
     bird = { x: 80, y: 180, v: 0 };
     pipes = [];
     score = bonus;
     speed = 3.5;
     active = true;
 
-    document.getElementById("menu").style.display = "none";
+    roundStartTime = Date.now(); // شروع این راند
+
     document.getElementById("score").textContent = score;
-    loop();
+    document.getElementById("menu").style.display = "none";
+    document.getElementById("adBtn").style.display = "none";
 }
 
-function gameOver() {
+function endGame() {
+    if (active) {
+        sessionPlayTime += Date.now() - roundStartTime;
+    }
+
     active = false;
     document.getElementById("menu").style.display = "flex";
 
     const best = Number(localStorage.getItem("ton_best") || 0);
     if (score > best) {
         localStorage.setItem("ton_best", score);
-        document.getElementById("best").textContent = score;
+        bestEl.textContent = score;
     }
+
+    updateAdButtonVisibility();
 }
 
+function updateAdButtonVisibility() {
+    const adBtn = document.getElementById("adBtn");
+    adBtn.style.display = "none";
+
+    const lastAdTime = Number(localStorage.getItem("last_ad_time") || 0);
+    const now = Date.now();
+
+    if (now - lastAdTime < AD_COOLDOWN) return;
+    if (sessionPlayTime < AD_REQUIRED_PLAYTIME) return;
+
+    adBtn.style.display = "block";
+}
+
+/* ================= GAME LOOP ================= */
 function update() {
+    if (!active) return;
+
     bird.v += 0.5;
     bird.y += bird.v;
 
-    if (pipes.length === 0 || pipes[pipes.length - 1].x < 360) {
+    if (!pipes.length || pipes[pipes.length - 1].x < 360) {
         pipes.push({
             x: 640,
             top: Math.random() * 120 + 60,
@@ -189,9 +219,9 @@ function update() {
         if (
             bird.x + 15 > p.x &&
             bird.x - 15 < p.x + 50 &&
-            (bird.y < p.top || bird.y > p.top + gap)
+            (bird.y < p.top || bird.y > p.top + GAP)
         ) {
-            gameOver();
+            endGame();
         }
 
         if (!p.passed && p.x < bird.x) {
@@ -203,33 +233,33 @@ function update() {
     });
 
     if (pipes[0]?.x < -60) pipes.shift();
-    if (bird.y < 0 || bird.y > 360) gameOver();
+    if (bird.y < 0 || bird.y > 360) endGame();
 }
 
 function draw() {
     ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,640,360);
+    ctx.fillRect(0, 0, 640, 360);
 
     if (imgPlayer.complete && imgPlayer.width) {
-        ctx.drawImage(imgPlayer, bird.x-20, bird.y-20, 40, 40);
+        ctx.drawImage(imgPlayer, bird.x - 20, bird.y - 20, 40, 40);
     } else {
         ctx.fillStyle = "#00d4ff";
-        ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
+        ctx.fillRect(bird.x - 20, bird.y - 20, 40, 40);
     }
 
     pipes.forEach(p => {
         ctx.fillStyle = "orange";
         ctx.fillRect(p.x, 0, 50, p.top);
-        ctx.fillRect(p.x, p.top + gap, 50, 360);
+        ctx.fillRect(p.x, p.top + GAP, 50, 360);
     });
 }
 
 function loop() {
-    if (!active) return;
     update();
     draw();
     requestAnimationFrame(loop);
 }
+loop();
 
 /* ================= INPUT ================= */
 window.addEventListener("mousedown", () => active && (bird.v = -8));
@@ -241,7 +271,9 @@ window.addEventListener("touchstart", e => {
 });
 
 /* ================= BUTTONS ================= */
-document.getElementById("startBtn").onclick = () => resetGame(0);
+document.getElementById("startBtn").onclick = () => {
+    startGame(0);
+};
 
 document.getElementById("adBtn").onclick = () => {
     if (!AdController) {
@@ -249,9 +281,13 @@ document.getElementById("adBtn").onclick = () => {
         return;
     }
 
-    AdController.show()
-        .then(() => resetGame(10))
-        .catch(() => alert("Ad failed to load."));
+    AdController.show().then(() => {
+        localStorage.setItem("last_ad_time", Date.now());
+        sessionPlayTime = 0; // ریست تایمر ۲ دقیقه
+        startGame(10);
+    }).catch(() => {
+        alert("Ad failed to load.");
+    });
 };
 </script>
 
