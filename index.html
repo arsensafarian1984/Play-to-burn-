@@ -1,27 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>TON Burner</title>
 
 <style>
-body{margin:0;background:#000;overflow:hidden;font-family:Arial}
+body{
+  margin:0;
+  background:#000;
+  overflow:hidden;
+  font-family:Arial;
+  touch-action:none;
+}
 canvas{display:block}
+
+#ui{
+  position:absolute;
+  top:10px;
+  width:100%;
+  text-align:center;
+  color:#00eaff;
+  font-weight:bold;
+  z-index:10;
+}
+
 #menu{
-position:absolute;inset:0;
-display:flex;flex-direction:column;
-align-items:center;justify-content:center;
-background:rgba(0,0,0,.9);color:#fff
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.9);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:#fff;
+  z-index:20;
 }
+
 button{
-padding:14px 36px;border:none;border-radius:40px;
-font-size:16px;font-weight:bold;cursor:pointer
+  padding:14px 36px;
+  border:none;
+  border-radius:40px;
+  font-size:16px;
+  font-weight:bold;
+  margin:10px;
+  cursor:pointer;
 }
+
 #startBtn{background:#00d4ff;color:#000}
 #adBtn{background:#ffcc00;color:#000;display:none}
 #adBtn:disabled{background:#555;color:#999}
-#ui{position:absolute;top:10px;width:100%;text-align:center;color:#0ff;font-weight:bold}
 </style>
 </head>
 
@@ -32,9 +60,9 @@ SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
 </div>
 
 <div id="menu">
-<h1>TON BURNER</h1>
-<button id="startBtn">START GAME 🔥</button>
-<button id="adBtn">Watch Ad (+10)</button>
+  <h1>TON BURNER</h1>
+  <button id="startBtn">START 🔥</button>
+  <button id="adBtn">BONUS +10 🎁</button>
 </div>
 
 <canvas id="c"></canvas>
@@ -43,148 +71,229 @@ SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
 <script src="https://adsgram.ai/js/adsgram-ad-sdk.js"></script>
 
 <script>
-/* ========= ENV ========= */
+/* ================= ENV ================= */
 const isTelegram = !!window.Telegram?.WebApp;
-if(isTelegram){Telegram.WebApp.ready();Telegram.WebApp.expand();}
+if(isTelegram){
+  Telegram.WebApp.ready();
+  Telegram.WebApp.expand();
+}
 
-/* ========= CANVAS ========= */
-const c = document.getElementById("c");
-const ctx = c.getContext("2d");
-function resize(){c.width=innerWidth;c.height=innerHeight}
-addEventListener("resize",resize);resize();
+/* ================= CANVAS ================= */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
 
-/* ========= ASSETS ========= */
-const birdImg=new Image();birdImg.src="logo.png";
-const fireImg=new Image();fireImg.src="fire.png";
+/* ================= ASSETS ================= */
+const birdImg = new Image();
+birdImg.src = "logo.png";
 
-/* ========= GAME ========= */
-let bird,pipes=[],score=0,active=false;
-let lastTime=0,playTime=0,startTime=0;
-let speed=220; // px per second
+const fireImg = new Image();
+fireImg.src = "fire.png";
 
-const GAP_RATIO=.6;
-const scoreEl=scoreSpan=document.getElementById("score");
-const bestEl=document.getElementById("best");
-bestEl.textContent=localStorage.getItem("best")||0;
+/* ================= GAME STATE ================= */
+let bird;
+let pipes = [];
+let score = 0;
+let active = false;
 
-/* ========= ADS ========= */
-let Ad=null;
+let lastTime = 0;
+let speed = 220;               // px/sec
+const gravity = 900;
+const jump = -420;
+const GAP_RATIO = 0.6;
+
+/* ==== play time for ad ==== */
+let playTime = 0;
+let runStart = 0;
+
+/* ================= UI ================= */
+const scoreEl = document.getElementById("score");
+const bestEl  = document.getElementById("best");
+const menu    = document.getElementById("menu");
+const adBtn   = document.getElementById("adBtn");
+
+bestEl.textContent = localStorage.getItem("best") || 0;
+
+/* ================= ADS ================= */
+let Ad = null;
+
 function initAds(){
- if(!isTelegram)return;
- if(!window.AdsgramAdController)return;
- Ad=window.AdsgramAdController.init({
-   blockId:"2340",
-   test:true
- });
+  if(!isTelegram) return;
+  if(!window.AdsgramAdController) return;
+
+  Ad = window.AdsgramAdController.init({
+    blockId: "2340",   // تست
+    test: true
+  });
 }
 
-/* ========= START ========= */
+/* ================= GAME LOGIC ================= */
 function startGame(bonus=0){
- bird={x:c.width*.2,y:c.height/2,v:0};
- pipes=[];
- score=bonus;
- speed=220;
- active=true;
- startTime=Date.now();
- menu.style.display="none";
- scoreEl.textContent=score;
+  bird = { x: canvas.width*0.25, y: canvas.height/2, v:0 };
+  pipes = [];
+  score = bonus;
+  speed = 220;
+  active = true;
+  runStart = Date.now();
+  scoreEl.textContent = score;
+  menu.style.display = "none";
 }
 
-/* ========= END ========= */
 function endGame(){
- if(active) playTime+=Date.now()-startTime;
- active=false;
- menu.style.display="flex";
+  if(active){
+    playTime += Date.now() - runStart;
+  }
+  active = false;
+  menu.style.display = "flex";
 
- const best=+localStorage.getItem("best")||0;
- if(score>best){localStorage.setItem("best",score);bestEl.textContent=score}
- updateAdBtn();
+  const best = +localStorage.getItem("best") || 0;
+  if(score > best){
+    localStorage.setItem("best", score);
+    bestEl.textContent = score;
+  }
+  updateAdButton();
 }
 
-/* ========= AD LOGIC ========= */
-function updateAdBtn(){
- const btn=adBtn;
- btn.style.display="none";
- const last=+localStorage.getItem("lastAd")||0;
- if(Date.now()-last<4*3600000)return;
- if(playTime<120000)return;
- btn.style.display="block";
+function updateAdButton(){
+  adBtn.style.display = "none";
+
+  const lastAd = +localStorage.getItem("lastAd") || 0;
+  const fourHours = 4 * 60 * 60 * 1000;
+
+  if(Date.now() - lastAd < fourHours) return;
+  if(playTime < 120000) return; // 2 minutes
+
+  adBtn.style.display = "block";
 }
 
-/* ========= LOOP ========= */
+/* ================= LOOP ================= */
 function loop(t){
- const dt=(t-lastTime)/1000;
- lastTime=t;
+  const dt = (t - lastTime) / 1000;
+  lastTime = t;
 
- ctx.fillStyle="#000";
- ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
- if(active){
-  bird.v+=900*dt;
-  bird.y+=bird.v*dt;
+  if(active){
+    bird.v += gravity * dt;
+    bird.y += bird.v * dt;
 
-  const gap=c.height*GAP_RATIO;
-  if(!pipes.length||pipes.at(-1).x<c.width-300){
-   pipes.push({x:c.width,top:Math.random()*(c.height-gap-80)+40,pass:false});
+    const gap = canvas.height * GAP_RATIO;
+
+    if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 300){
+      pipes.push({
+        x: canvas.width,
+        top: Math.random()*(canvas.height-gap-100)+50,
+        passed:false
+      });
+    }
+
+    pipes.forEach(p=>{
+      p.x -= speed * dt;
+
+      if(
+        bird.x+20 > p.x &&
+        bird.x-20 < p.x+60 &&
+        (bird.y < p.top || bird.y > p.top + gap)
+      ){
+        endGame();
+      }
+
+      if(!p.passed && p.x < bird.x){
+        p.passed = true;
+        score++;
+        speed += 12;
+        scoreEl.textContent = score;
+      }
+    });
+
+    if(pipes[0]?.x < -80) pipes.shift();
+    if(bird.y < 0 || bird.y > canvas.height) endGame();
   }
 
+  /* ===== DRAW BIRD ===== */
+  if(bird){
+    if(birdImg.complete){
+      ctx.drawImage(birdImg, bird.x-20, bird.y-20, 40, 40);
+    }else{
+      ctx.fillStyle="#0ff";
+      ctx.fillRect(bird.x-20, bird.y-20, 40, 40);
+    }
+  }
+
+  /* ===== DRAW FIRE PIPES (CORRECT) ===== */
   pipes.forEach(p=>{
-   p.x-=speed*dt;
+    const w = 60;
+    const gap = canvas.height * GAP_RATIO;
 
-   if(
-    bird.x+20>p.x && bird.x-20<p.x+60 &&
-    (bird.y<p.top||bird.y>p.top+gap)
-   ) endGame();
+    if(fireImg.complete){
 
-   if(!p.pass&&p.x<bird.x){p.pass=true;score++;speed+=12;scoreEl.textContent=score;}
+      /* TOP (FLIPPED) */
+      ctx.save();
+      ctx.translate(p.x + w/2, p.top);
+      ctx.scale(1, -1);
+      ctx.drawImage(fireImg, -w/2, 0, w, p.top);
+      ctx.restore();
+
+      /* BOTTOM */
+      ctx.drawImage(
+        fireImg,
+        p.x,
+        p.top + gap,
+        w,
+        canvas.height - (p.top + gap)
+      );
+
+    }else{
+      ctx.fillStyle="orange";
+      ctx.fillRect(p.x,0,w,p.top);
+      ctx.fillRect(p.x,p.top+gap,w,canvas.height);
+    }
   });
 
-  if(pipes[0]?.x<-80)pipes.shift();
-  if(bird.y<0||bird.y>c.height)endGame();
- }
-
- /* DRAW */
- if(bird){
-  birdImg.complete?
-   ctx.drawImage(birdImg,bird.x-20,bird.y-20,40,40):
-   ctx.fillRect(bird.x-20,bird.y-20,40,40);
- }
-
- pipes.forEach(p=>{
-  if(fireImg.complete){
-   ctx.drawImage(fireImg,p.x,0,60,p.top);
-   ctx.drawImage(fireImg,p.x,p.top+c.height*GAP_RATIO,60,c.height);
-  }else{
-   ctx.fillStyle="orange";
-   ctx.fillRect(p.x,0,60,p.top);
-   ctx.fillRect(p.x,p.top+c.height*GAP_RATIO,60,c.height);
-  }
- });
-
- requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
-/* ========= INPUT ========= */
-addEventListener("mousedown",()=>active&&(bird.v=-420));
-addEventListener("touchstart",e=>{if(active){bird.v=-420;e.preventDefault()}});
+/* ================= INPUT ================= */
+addEventListener("mousedown",()=> active && (bird.v = jump));
+addEventListener("touchstart",e=>{
+  if(active){ bird.v = jump; e.preventDefault(); }
+});
 
-/* ========= BUTTONS ========= */
-startBtn.onclick=()=>startGame(0);
+/* ================= BUTTONS ================= */
+startBtn.onclick = ()=> startGame(0);
 
-adBtn.onclick=()=>{
- if(!isTelegram){
-  alert("Test Ad (Browser)");
-  localStorage.setItem("lastAd",Date.now());
-  playTime=0;startGame(10);return;
- }
- initAds();
- if(!Ad){alert("Ads not ready");return;}
- Ad.show().then(()=>{
-  localStorage.setItem("lastAd",Date.now());
-  playTime=0;startGame(10);
- }).catch(()=>alert("Ad failed"));
+adBtn.onclick = ()=>{
+  if(!isTelegram){
+    alert("Test Ad (Browser)");
+    localStorage.setItem("lastAd", Date.now());
+    playTime = 0;
+    startGame(10);
+    return;
+  }
+
+  initAds();
+  if(!Ad){
+    alert("Ads not ready");
+    return;
+  }
+
+  Ad.show().then(()=>{
+    localStorage.setItem("lastAd", Date.now());
+    playTime = 0;
+    startGame(10);
+  }).catch(e=>{
+    console.log(e);
+    alert("Ad not available");
+  });
 };
 </script>
+
 </body>
 </html>
