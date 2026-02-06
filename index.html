@@ -2,294 +2,226 @@
 <html lang="fa">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>TON Burner</title>
-
+<title>Flappy Fire</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{
-  margin:0;
-  background:#000;
-  overflow:hidden;
-  font-family:Arial;
-  touch-action:none;
+body {
+  margin: 0;
+  background: #111;
+  color: #fff;
+  font-family: sans-serif;
+  text-align: center;
 }
-canvas{display:block}
-
-#ui{
-  position:absolute;
-  top:10px;
-  width:100%;
-  text-align:center;
-  color:#00eaff;
-  font-weight:bold;
-  z-index:10;
+canvas {
+  background: #222;
+  display: block;
+  margin: auto;
 }
-
-#menu{
-  position:absolute;
-  inset:0;
-  background:rgba(0,0,0,.9);
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  color:#fff;
-  z-index:20;
-  text-align:center;
+button {
+  padding: 12px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  margin: 8px;
+  cursor: pointer;
 }
-
-button{
-  padding:14px 36px;
-  border:none;
-  border-radius:40px;
-  font-size:16px;
-  font-weight:bold;
-  margin:10px;
-  cursor:pointer;
+#startBtn { background: #00c853; }
+#adBtn {
+  background: #ffd600;
+  display: none;
 }
-
-#startBtn{background:#00d4ff;color:#000}
-#adBtn{background:#ffcc00;color:#000;display:none}
-
-#policy{
-  font-size:11px;
-  opacity:.7;
-  max-width:280px;
-  margin-top:14px;
-  line-height:1.4;
+#policy {
+  font-size: 12px;
+  color: #aaa;
+  max-width: 320px;
+  margin: 10px auto;
 }
 </style>
 </head>
 
 <body>
 
-<div id="ui">
-SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
+<canvas id="game" width="360" height="520"></canvas>
+
+<button id="startBtn">Start Game</button>
+<button id="adBtn">Watch Ad (+10)</button>
+
+<div id="policy">
+با شروع بازی شما با نمایش تبلیغ برای دریافت امتیاز موافقت می‌کنید.
+تبلیغ اختیاری است و فقط پس از پایان بازی فعال می‌شود.
 </div>
-
-<div id="menu">
-  <h1>TON BURNER</h1>
-  <button id="startBtn">START 🔥</button>
-  <button id="adBtn">BONUS +10 🎁</button>
-
-  <div id="policy">
-    No personal data is collected.<br>
-    Rewarded ads are provided by Adsgram.<br>
-    By playing this game, you agree to this policy.
-  </div>
-</div>
-
-<canvas id="c"></canvas>
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://adsgram.ai/js/adsgram-ad-sdk.js"></script>
 
 <script>
-/* ========= ENV ========= */
-const isTelegram = !!window.Telegram?.WebApp;
-if(isTelegram){
-  Telegram.WebApp.ready();
-  Telegram.WebApp.expand();
-}
+/* ================== ADZGRAM TEST ================== */
+window.Adzgram = {
+  showAd: function(blockId, onSuccess, onFail) {
+    console.log("Adzgram TEST:", blockId);
+    // شبیه‌سازی تبلیغ تست
+    setTimeout(() => {
+      if (blockId === 2340) {
+        console.log("TEST AD SHOWN");
+        onSuccess();
+      } else {
+        onFail();
+      }
+    }, 1000);
+  }
+};
 
-/* ========= CANVAS ========= */
-const canvas = document.getElementById("c");
+/* ================== GAME ================== */
+const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-function resize(){
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-}
-addEventListener("resize", resize);
-resize();
 
-/* ========= ASSETS ========= */
-const birdImg = new Image();
-birdImg.src = "logo.png";
+let bird, pipes, score;
+let running = false;
+let gameOver = false;
 
-const fireImg = new Image();
-fireImg.src = "fire.png";
-
-/* ========= GAME STATE ========= */
-let bird, pipes, score, active=false;
 let lastTime = 0;
-let speed = 220;
-const gravity = 900;
-const jump = -420;
+let totalPlayTime = 0; // مجموع زمان بازی
+let lastFrame = 0;
 
-/* آتش: دهانه منطقی و رندم */
-const GAP_BASE = 0.42;
-const GAP_RANDOM = 0.12;
+const GAP = 150; // دهانه قابل عبور
+const PIPE_WIDTH = 50;
 
-/* ========= TIME TRACK ========= */
-let playTime = 0;
-let runStart = 0;
-
-/* ========= UI ========= */
-const scoreEl = document.getElementById("score");
-const bestEl  = document.getElementById("best");
-const menu    = document.getElementById("menu");
-const adBtn   = document.getElementById("adBtn");
-const startBtn= document.getElementById("startBtn");
-
-bestEl.textContent = localStorage.getItem("best") || 0;
-
-/* ========= ADS ========= */
-let Ad = null;
-function initAds(){
-  if(!isTelegram) return;
-  if(!window.AdsgramAdController) return;
-  Ad = window.AdsgramAdController.init({
-    blockId:"2340",
-    test:true
-  });
-}
-
-/* ========= GAME ========= */
-function startGame(bonus=0){
-  bird = { x:canvas.width*0.25, y:canvas.height/2, v:0 };
+function resetGame() {
+  bird = { x: 80, y: 260, vy: 0 };
   pipes = [];
-  score = bonus;
-  speed = 220;
-  active = true;
-  runStart = Date.now();
-  scoreEl.textContent = score;
-  menu.style.display="none";
+  score = 0;
+  gameOver = false;
+  lastTime = performance.now();
 }
 
-function endGame(){
-  if(active) playTime += Date.now() - runStart;
-  active = false;
-  menu.style.display="flex";
+function spawnPipe() {
+  const min = 80;
+  const max = canvas.height - GAP - 80;
+  const topHeight = Math.random() * (max - min) + min;
 
-  const best = +localStorage.getItem("best") || 0;
-  if(score > best){
-    localStorage.setItem("best",score);
-    bestEl.textContent = score;
+  pipes.push({
+    x: canvas.width,
+    top: topHeight,
+    bottom: canvas.height - (topHeight + GAP),
+    passed: false
+  });
+}
+
+function drawFirePipe(x, y, w, h, flip=false) {
+  ctx.save();
+  ctx.translate(x + w/2, y + h/2);
+  if (flip) ctx.rotate(Math.PI);
+  ctx.fillStyle = "#ff5722";
+  ctx.beginPath();
+  ctx.moveTo(-w/2, h/2);
+  ctx.lineTo(0, -h/2);
+  ctx.lineTo(w/2, h/2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function update(dt) {
+  bird.vy += 900 * dt;
+  bird.y += bird.vy * dt;
+
+  if (bird.y < 0 || bird.y > canvas.height) endGame();
+
+  if (pipes.length === 0 || pipes[pipes.length-1].x < 180) {
+    spawnPipe();
   }
-  updateAdButton();
-}
 
-function updateAdButton(){
-  adBtn.style.display="none";
+  pipes.forEach(p => {
+    p.x -= 180 * dt;
 
-  const lastAd = +localStorage.getItem("lastAd") || 0;
-  const fourHours = 4*60*60*1000;
-
-  if(Date.now() - lastAd < fourHours) return;
-  if(playTime < 60000) return; // 1 دقیقه
-
-  adBtn.style.display="block";
-}
-
-/* ========= LOOP ========= */
-function loop(t){
-  const dt = (t-lastTime)/1000;
-  lastTime = t;
-
-  ctx.fillStyle="#000";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  if(active){
-    bird.v += gravity*dt;
-    bird.y += bird.v*dt;
-
-    const gap = canvas.height * (GAP_BASE + Math.random()*GAP_RANDOM);
-
-    if(!pipes.length || pipes[pipes.length-1].x < canvas.width-320){
-      pipes.push({
-        x:canvas.width,
-        top:Math.random()*(canvas.height-gap-160)+80,
-        passed:false,
-        gap
-      });
+    if (!p.passed && p.x + PIPE_WIDTH < bird.x) {
+      score++;
+      p.passed = true;
     }
 
-    pipes.forEach(p=>{
-      p.x -= speed*dt;
-
-      if(
-        bird.x+18 > p.x &&
-        bird.x-18 < p.x+60 &&
-        (bird.y < p.top || bird.y > p.top+p.gap)
-      ){
-        endGame();
-      }
-
-      if(!p.passed && p.x < bird.x){
-        p.passed=true;
-        score++;
-        speed+=10;
-        scoreEl.textContent=score;
-      }
-    });
-
-    if(pipes[0]?.x < -80) pipes.shift();
-    if(bird.y<0 || bird.y>canvas.height) endGame();
-  }
-
-  /* DRAW BIRD */
-  if(bird){
-    if(birdImg.complete){
-      ctx.drawImage(birdImg,bird.x-20,bird.y-20,40,40);
-    }else{
-      ctx.fillStyle="#0ff";
-      ctx.fillRect(bird.x-20,bird.y-20,40,40);
-    }
-  }
-
-  /* DRAW FIRE */
-  pipes.forEach(p=>{
-    const w=60;
-    if(fireImg.complete){
-      ctx.save();
-      ctx.translate(p.x+w/2,p.top);
-      ctx.scale(1,-1);
-      ctx.drawImage(fireImg,-w/2,0,w,p.top);
-      ctx.restore();
-
-      ctx.drawImage(
-        fireImg,
-        p.x,
-        p.top+p.gap,
-        w,
-        canvas.height-(p.top+p.gap)
-      );
+    // collision
+    if (
+      bird.x > p.x &&
+      bird.x < p.x + PIPE_WIDTH &&
+      (bird.y < p.top || bird.y > p.top + GAP)
+    ) {
+      endGame();
     }
   });
+
+  pipes = pipes.filter(p => p.x > -PIPE_WIDTH);
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // bird
+  ctx.fillStyle = "#00e5ff";
+  ctx.beginPath();
+  ctx.arc(bird.x, bird.y, 10, 0, Math.PI*2);
+  ctx.fill();
+
+  // pipes
+  pipes.forEach(p => {
+    drawFirePipe(p.x, 0, PIPE_WIDTH, p.top, false);
+    drawFirePipe(p.x, canvas.height - p.bottom, PIPE_WIDTH, p.bottom, true);
+  });
+
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Score: " + score, 10, 20);
+}
+
+function loop(t) {
+  if (!running) return;
+
+  const dt = (t - lastFrame) / 1000;
+  lastFrame = t;
+
+  update(dt);
+  draw();
 
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
 
-/* ========= INPUT ========= */
-addEventListener("mousedown",()=>active&&(bird.v=jump));
-addEventListener("touchstart",e=>{
-  if(active){ bird.v=jump; e.preventDefault(); }
+function endGame() {
+  running = false;
+  gameOver = true;
+  document.getElementById("startBtn").style.display = "inline-block";
+
+  if (totalPlayTime >= 60) {
+    document.getElementById("adBtn").style.display = "inline-block";
+  }
+}
+
+/* ================== EVENTS ================== */
+document.getElementById("startBtn").onclick = () => {
+  resetGame();
+  running = true;
+  document.getElementById("startBtn").style.display = "none";
+  document.getElementById("adBtn").style.display = "none";
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+};
+
+document.getElementById("adBtn").onclick = () => {
+  window.Adzgram.showAd(
+    2340,
+    () => {
+      score += 10;
+      document.getElementById("adBtn").style.display = "none";
+      alert("10 امتیاز اضافه شد");
+    },
+    () => {
+      alert("تبلیغ در دسترس نیست");
+    }
+  );
+};
+
+document.addEventListener("click", () => {
+  if (running) bird.vy = -300;
 });
 
-/* ========= BUTTONS ========= */
-startBtn.onclick=()=>startGame(0);
-
-adBtn.onclick=()=>{
-  if(!isTelegram){
-    alert("Test Ad (Browser)");
-    localStorage.setItem("lastAd",Date.now());
-    playTime=0;
-    startGame(10);
-    return;
-  }
-
-  initAds();
-  if(!Ad){ alert("Ad not ready"); return; }
-
-  Ad.show().then(()=>{
-    localStorage.setItem("lastAd",Date.now());
-    playTime=0;
-    startGame(10);
-  }).catch(()=>{
-    alert("Ad not available");
-  });
-};
+/* ================== TIME TRACK ================== */
+setInterval(() => {
+  if (running) totalPlayTime++;
+}, 1000);
 </script>
 
 </body>
