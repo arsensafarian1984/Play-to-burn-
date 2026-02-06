@@ -225,7 +225,7 @@ const top = Math.random() * (TOP_MAX - TOP_MIN) + TOP_MIN;
       if(!p.passed && p.x < bird.x){
         p.passed = true;
         score++;
-        speed += 10;
+        speed += 3;
         scoreEl.textContent = score;
       }
     });
