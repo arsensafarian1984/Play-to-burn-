@@ -200,7 +200,7 @@ function loop(t){
     bird.v += gravity * dt;
     bird.y += bird.v * dt;
 
-    if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 300){
+    if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 320){
       const gap = Math.random()*(GAP_MAX-GAP_MIN)+GAP_MIN;
       // تعیین حداقل و حداکثر ارتفاع شعله بالا
 const TOP_MIN = 50;                             
