@@ -202,7 +202,7 @@ function loop(t){
 
     if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 300){
       const gap = Math.random()*(GAP_MAX-GAP_MIN)+GAP_MIN;
-      const top = Math.random()*(canvas.height-gap-80)+80;
+      const top = Math.random()*(canvas.height-gap-130)+100;
       pipes.push({x:canvas.width, top:top, gap:gap, passed:false});
     }
 
