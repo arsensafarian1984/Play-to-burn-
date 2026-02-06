@@ -38,6 +38,14 @@ canvas{display:block}
   text-align:center;
 }
 
+.policy{
+  font-size:12px;
+  opacity:.75;
+  max-width:300px;
+  margin-top:12px;
+  line-height:1.4;
+}
+
 button{
   padding:14px 36px;
   border:none;
@@ -49,24 +57,7 @@ button{
 }
 
 #startBtn{background:#00d4ff;color:#000}
-#adBtn{background:#ffcc00;color:#000}
-
-#toast{
-  position:absolute;
-  bottom:30px;
-  left:50%;
-  transform:translateX(-50%);
-  background:rgba(0,0,0,.85);
-  color:#00eaff;
-  padding:12px 22px;
-  border-radius:20px;
-  font-weight:bold;
-  opacity:0;
-  pointer-events:none;
-  transition:.3s;
-  z-index:50;
-}
-#toast.show{opacity:1}
+#adBtn{background:#ffcc00;color:#000;display:none}
 </style>
 </head>
 
@@ -80,9 +71,14 @@ SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
   <h1>TON BURNER</h1>
   <button id="startBtn">START 🔥</button>
   <button id="adBtn">BONUS +10 🎁</button>
+
+  <div class="policy">
+    This game does not collect personal data.<br>
+    Rewarded ads are provided by AdsGram.<br>
+    Ads are optional and give in-game bonus only.
+  </div>
 </div>
 
-<div id="toast"></div>
 <canvas id="c"></canvas>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -91,18 +87,9 @@ SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
 <script>
 /* ========= ENV ========= */
 const isTelegram = !!window.Telegram?.WebApp;
-
-/* ========= UI ========= */
-const scoreEl = document.getElementById("score");
-const bestEl  = document.getElementById("best");
-const menu    = document.getElementById("menu");
-const adBtn   = document.getElementById("adBtn");
-const toast   = document.getElementById("toast");
-
-function showMessage(text,time=2500){
-  toast.textContent=text;
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),time);
+if(isTelegram){
+  Telegram.WebApp.ready();
+  Telegram.WebApp.expand();
 }
 
 /* ========= CANVAS ========= */
@@ -112,113 +99,154 @@ function resize(){
   canvas.width = innerWidth;
   canvas.height = innerHeight;
 }
-addEventListener("resize",resize);
+addEventListener("resize", resize);
 resize();
 
-/* ========= GAME ========= */
-let bird, pipes=[], score=0, active=false;
-let lastTime=0, speed=220;
-const gravity=900, jump=-420;
-const GAP_MIN=120, GAP_MAX=200, PIPE_WIDTH=60;
+/* ========= ASSETS ========= */
+const birdImg = new Image();
+birdImg.src = "logo.png";
 
-/* ========= BEST ========= */
-bestEl.textContent = localStorage.getItem("best")||0;
+const fireImg = new Image();
+fireImg.src = "fire.png";
+
+/* ========= GAME STATE ========= */
+let bird;
+let pipes = [];
+let score = 0;
+let active = false;
+
+let lastTime = 0;
+let speed = 220;
+const gravity = 900;
+const jump = -420;
+
+/* 🔥 شعله‌ها - فاصله نامنظم و کوتاه/بلند */
+const GAP_MIN = 120;
+const GAP_MAX = 200;
+const PIPE_WIDTH = 60;
+
+/* ========= AD TIME ========= */
+let playTime = 0;
+let lastFrameTime = performance.now();
+
+/* ========= UI ========= */
+const scoreEl = document.getElementById("score");
+const bestEl  = document.getElementById("best");
+const menu    = document.getElementById("menu");
+const adBtn   = document.getElementById("adBtn");
+
+bestEl.textContent = localStorage.getItem("best") || 0;
 
 /* ========= ADS ========= */
-let Ad=null, adReady=false;
-
+let Ad = null;
 function initAds(){
-  if(!isTelegram || !window.AdsgramAdController){
-    console.warn("Ads not available");
-    return;
-  }
-  try{
-    Ad = AdsgramAdController.init({
-      blockId:"2340",
-      test:true
-    });
-    adReady=true;
-    console.log("AdsGram ready");
-  }catch(e){
-    console.error(e);
-    adReady=false;
-  }
+  if(!isTelegram) return;
+  if(!window.AdsgramAdController) return;
+  Ad = window.AdsgramAdController.init({
+    blockId:"2340",
+    test:true
+  });
 }
 
-if(isTelegram){
-  Telegram.WebApp.ready();
-  Telegram.WebApp.expand();
-  initAds();
-}
-
-/* ========= GAME FLOW ========= */
+/* ========= GAME ========= */
 function startGame(bonus=0){
-  bird={x:canvas.width*0.25,y:canvas.height/2,v:0};
-  pipes=[];
-  score=bonus;
-  speed=220;
-  active=true;
-  scoreEl.textContent=score;
-  menu.style.display="none";
+  bird = { x: canvas.width*0.25, y: canvas.height/2, v:0 };
+  pipes = [];
+  score = bonus;
+  speed = 220;
+  active = true;
+  scoreEl.textContent = score;
+  menu.style.display = "none";
 }
 
 function endGame(){
-  active=false;
-  menu.style.display="flex";
+  active = false;
+  menu.style.display = "flex";
 
-  const best=+localStorage.getItem("best")||0;
-  if(score>best){
-    localStorage.setItem("best",score);
-    bestEl.textContent=score;
+  const best = +localStorage.getItem("best") || 0;
+  if(score > best){
+    localStorage.setItem("best", score);
+    bestEl.textContent = score;
   }
+  updateAdButton();
+}
+
+function updateAdButton(){
+  adBtn.style.display="none";
+
+  const lastAd = +localStorage.getItem("lastAd") || 0;
+  const fourHours = 4*60*60*1000;
+
+  if(Date.now()-lastAd < fourHours) return;
+  if(playTime < 60000) return; // ✅ 1 دقیقه مجموع بازی
+  adBtn.style.display="block";
 }
 
 /* ========= LOOP ========= */
 function loop(t){
-  const dt=(t-lastTime)/1000;
-  lastTime=t;
+  const dt = (t - lastTime) / 1000;
+  lastTime = t;
+
+  /* ⏱ جمع زمان فعال بودن بازی */
+  if(active){
+    playTime += t - lastFrameTime;
+  }
+  lastFrameTime = t;
 
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   if(active){
-    bird.v+=gravity*dt;
-    bird.y+=bird.v*dt;
+    bird.v += gravity * dt;
+    bird.y += bird.v * dt;
 
-    if(!pipes.length||pipes[pipes.length-1].x<canvas.width-280){
-      const gap=Math.random()*(GAP_MAX-GAP_MIN)+GAP_MIN;
-      const top=Math.random()*(canvas.height-gap-100)+50;
-      pipes.push({x:canvas.width,top,gap,passed:false});
+    if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 280){
+      const gap = Math.random()*(GAP_MAX-GAP_MIN)+GAP_MIN;
+      const top = Math.random()*(canvas.height-gap-100)+50;
+      pipes.push({x:canvas.width, top:top, gap:gap, passed:false});
     }
 
     pipes.forEach(p=>{
-      p.x-=speed*dt;
+      p.x -= speed*dt;
 
       if(
-        bird.x+20>p.x &&
-        bird.x-20<p.x+PIPE_WIDTH &&
-        (bird.y<p.top||bird.y>p.top+p.gap)
-      ) endGame();
+        bird.x+20 > p.x &&
+        bird.x-20 < p.x+PIPE_WIDTH &&
+        (bird.y < p.top || bird.y > p.top + p.gap)
+      ){
+        endGame();
+      }
 
-      if(!p.passed && p.x<bird.x){
-        p.passed=true;
+      if(!p.passed && p.x < bird.x){
+        p.passed = true;
         score++;
-        speed+=10;
-        scoreEl.textContent=score;
+        speed += 10;
+        scoreEl.textContent = score;
       }
     });
 
-    if(pipes[0]?.x<-80) pipes.shift();
-    if(bird.y<0||bird.y>canvas.height) endGame();
+    if(pipes[0]?.x < -80) pipes.shift();
+    if(bird.y < 0 || bird.y > canvas.height) endGame();
   }
 
-  ctx.fillStyle="#0ff";
-  if(bird) ctx.fillRect(bird.x-20,bird.y-20,40,40);
+  /* DRAW BIRD */
+  if(bird && birdImg.complete){
+    ctx.drawImage(birdImg,bird.x-20,bird.y-20,40,40);
+  }
 
-  ctx.fillStyle="#f00";
+  /* DRAW FIRE PIPES */
   pipes.forEach(p=>{
-    ctx.fillRect(p.x,0,PIPE_WIDTH,p.top);
-    ctx.fillRect(p.x,p.top+p.gap,PIPE_WIDTH,canvas.height);
+    if(fireImg.complete){
+      /* بالا (فلپ شده) */
+      ctx.save();
+      ctx.translate(p.x+PIPE_WIDTH/2,p.top);
+      ctx.scale(1,-1);
+      ctx.drawImage(fireImg,-PIPE_WIDTH/2,0,PIPE_WIDTH,p.top);
+      ctx.restore();
+
+      /* پایین */
+      ctx.drawImage(fireImg,p.x,p.top+p.gap,PIPE_WIDTH,canvas.height-(p.top+p.gap));
+    }
   });
 
   requestAnimationFrame(loop);
@@ -226,9 +254,9 @@ function loop(t){
 requestAnimationFrame(loop);
 
 /* ========= INPUT ========= */
-addEventListener("mousedown",()=>active&&(bird.v=jump));
+addEventListener("mousedown",()=> active && (bird.v=jump));
 addEventListener("touchstart",e=>{
-  if(active){bird.v=jump;e.preventDefault();}
+  if(active){ bird.v=jump; e.preventDefault(); }
 });
 
 /* ========= BUTTONS ========= */
@@ -236,22 +264,17 @@ startBtn.onclick=()=>startGame(0);
 
 adBtn.onclick=()=>{
   if(!isTelegram){
-    showMessage("🧪 تست: +10 امتیاز");
+    localStorage.setItem("lastAd",Date.now());
+    playTime=0;
     startGame(10);
     return;
   }
-  if(!adReady){
-    showMessage("❌ تبلیغ آماده نیست");
-    return;
-  }
-  Ad.show()
-    .then(()=>{
-      showMessage("🎉 +10 امتیاز گرفتی!");
-      startGame(10);
-    })
-    .catch(()=>{
-      showMessage("⚠️ تبلیغی موجود نیست");
-    });
+  initAds();
+  Ad?.show().then(()=>{
+    localStorage.setItem("lastAd",Date.now());
+    playTime=0;
+    startGame(10);
+  });
 };
 </script>
 
