@@ -200,7 +200,7 @@ function loop(t){
     bird.v += gravity * dt;
     bird.y += bird.v * dt;
 
-    if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 280){
+    if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 300){
       const gap = Math.random()*(GAP_MAX-GAP_MIN)+GAP_MIN;
       const top = Math.random()*(canvas.height-gap-100)+50;
       pipes.push({x:canvas.width, top:top, gap:gap, passed:false});
