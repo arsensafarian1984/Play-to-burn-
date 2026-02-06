@@ -120,8 +120,10 @@ let speed = 220;
 const gravity = 900;
 const jump = -420;
 
-/* 🔥 دهانه آتش بسیار تنگ‌تر */
-const GAP_PX = 150;
+/* 🔥 شعله‌ها - فاصله نامنظم و کوتاه/بلند */
+const GAP_MIN = 120;
+const GAP_MAX = 200;
+const PIPE_WIDTH = 60;
 
 /* ========= AD TIME ========= */
 let playTime = 0;
@@ -170,15 +172,14 @@ function endGame(){
 }
 
 function updateAdButton(){
-  adBtn.style.display = "none";
+  adBtn.style.display="none";
 
   const lastAd = +localStorage.getItem("lastAd") || 0;
-  const fourHours = 4 * 60 * 60 * 1000;
+  const fourHours = 4*60*60*1000;
 
-  if(Date.now() - lastAd < fourHours) return;
-  if(playTime < 60000) return; // ✅ 1 minute
-
-  adBtn.style.display = "block";
+  if(Date.now()-lastAd < fourHours) return;
+  if(playTime < 60000) return; // ✅ 1 دقیقه مجموع بازی
+  adBtn.style.display="block";
 }
 
 /* ========= LOOP ========= */
@@ -186,7 +187,7 @@ function loop(t){
   const dt = (t - lastTime) / 1000;
   lastTime = t;
 
-  /* ⏱ جمع دقیق زمان بازی */
+  /* ⏱ جمع زمان فعال بودن بازی */
   if(active){
     playTime += t - lastFrameTime;
   }
@@ -200,21 +201,18 @@ function loop(t){
     bird.y += bird.v * dt;
 
     if(!pipes.length || pipes[pipes.length-1].x < canvas.width - 280){
-      const center = canvas.height/2;
-      pipes.push({
-        x: canvas.width,
-        top: center - GAP_PX/2,
-        passed:false
-      });
+      const gap = Math.random()*(GAP_MAX-GAP_MIN)+GAP_MIN;
+      const top = Math.random()*(canvas.height-gap-100)+50;
+      pipes.push({x:canvas.width, top:top, gap:gap, passed:false});
     }
 
     pipes.forEach(p=>{
-      p.x -= speed * dt;
+      p.x -= speed*dt;
 
       if(
         bird.x+20 > p.x &&
-        bird.x-20 < p.x+60 &&
-        (bird.y < p.top || bird.y > p.top + GAP_PX)
+        bird.x-20 < p.x+PIPE_WIDTH &&
+        (bird.y < p.top || bird.y > p.top + p.gap)
       ){
         endGame();
       }
@@ -231,26 +229,23 @@ function loop(t){
     if(bird.y < 0 || bird.y > canvas.height) endGame();
   }
 
+  /* DRAW BIRD */
   if(bird && birdImg.complete){
     ctx.drawImage(birdImg,bird.x-20,bird.y-20,40,40);
   }
 
+  /* DRAW FIRE PIPES */
   pipes.forEach(p=>{
-    const w=60;
     if(fireImg.complete){
+      /* بالا (فلپ شده) */
       ctx.save();
-      ctx.translate(p.x+w/2,p.top);
+      ctx.translate(p.x+PIPE_WIDTH/2,p.top);
       ctx.scale(1,-1);
-      ctx.drawImage(fireImg,-w/2,0,w,p.top);
+      ctx.drawImage(fireImg,-PIPE_WIDTH/2,0,PIPE_WIDTH,p.top);
       ctx.restore();
 
-      ctx.drawImage(
-        fireImg,
-        p.x,
-        p.top+GAP_PX,
-        w,
-        canvas.height-(p.top+GAP_PX)
-      );
+      /* پایین */
+      ctx.drawImage(fireImg,p.x,p.top+p.gap,PIPE_WIDTH,canvas.height-(p.top+p.gap));
     }
   });
 
